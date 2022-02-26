@@ -1,5 +1,3 @@
-from fnmatch import translate
-
 import data_utils as du
 import tensorflow as tf
 import json
