@@ -1,0 +1,6 @@
+__pycache__/*
+data/annotations/*
+data/annotations.zip
+data/video/
+*.png
+experiment*
