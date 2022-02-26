@@ -3,4 +3,5 @@ data/annotations/*
 data/annotations.zip
 data/video/
 *.png
+*.jpg
 experiment*

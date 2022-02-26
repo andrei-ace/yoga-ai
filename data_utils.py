@@ -52,6 +52,28 @@ def normalize(body3D):
         centered = np.append(centered,point[0:3])
     return centered.reshape((-1,3,))
 
+def normalize2D(body2D):
+    scale_hip_head = 1./length2D(body2D[14], body2D[1])
+    T = np.matmul(scale2D(scale_hip_head),translate2D(body2D[14]))
+    centered = []
+    for i in range(len(body2D)):
+        point = np.matmul(T, np.append(body2D[i], 1))
+        centered = np.append(centered,point[0:2])
+    return centered.reshape((-1,2,))
+
+def translate2D(p):
+    return np.array([
+        [1,0, -p[0]],
+        [0,1, -p[1]],
+        [0,0,    1]])
+
+def scale2D(s):
+    return np.array([
+        [s,0,0],
+        [0,s,0],
+        [0,0,1]])
+
+
 def translate(p):
     return np.array([
         [1,0,0, -p[0]],
@@ -69,6 +91,9 @@ def scale(s):
 
 def length(p1,p2):
     return np.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2+(p1[2]-p2[2])**2)
+
+def length2D(p1,p2):
+    return np.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
 
 
 def world_to_camera(rz, ry, d):
@@ -110,6 +135,12 @@ def camera_to_world(d):
     TRANSF[3,3] = 1
     return TRANSF
 
+def image_to_camera():
+    return np.array([
+        [-1, 0, 0],
+        [ 0,-1, 0],
+        [ 0, 0, 1]
+    ])
 
 def to_openpose(bodyH3GG):
     body3d_openpose = [

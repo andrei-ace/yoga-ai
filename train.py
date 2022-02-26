@@ -1,16 +1,17 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, InputLayer
+from tensorflow.keras.layers import Dense, InputLayer, BatchNormalization
 import data_utils as du
 
 
 def build_and_compile_model():
     model = Sequential([
-        InputLayer(input_shape=(28,)),
-        Dense(256, activation='relu'),
-        Dense(256, activation='relu'),
-        Dense(256, activation='relu'),
+        InputLayer(input_shape=(None,28,)),
+        Dense(1024, activation='relu'),
+        Dense(1024, activation='relu'),
+        Dense(1024, activation='relu'),
+        Dense(1024, activation='relu'),
         Dense(14)
     ])
 
