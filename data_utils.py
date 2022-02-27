@@ -170,8 +170,20 @@ def parse_example(example):
     content = tf.io.parse_single_example(example, data)
     return content['2D'], content['Z']
 
+def parse_example2D(example):
+    data = {
+        '2D': tf.io.FixedLenSequenceFeature([], tf.float32,allow_missing=True)
+    }
+    content = tf.io.parse_single_example(example, data)
+    return content['2D']
+
 
 def load_tfrecords():
     dataset = tf.data.TFRecordDataset(glob.glob('./data/Human36M_*.tfrecords'))
     dataset = dataset.map(parse_example).map(lambda x,y: (tf.reshape(x,(28,)),tf.reshape(y,(14,))))
+    return dataset
+
+def load_tfrecords2D():
+    dataset = tf.data.TFRecordDataset(glob.glob('./data/mov*.tfrecords'))
+    dataset = dataset.map(parse_example2D).map(lambda x: (tf.reshape(x,(28,))))
     return dataset

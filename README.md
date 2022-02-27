@@ -22,4 +22,6 @@ sh build.sh
 
 # Movie
 
-ffmpeg -i file.webm -r 1/1 ./1/$filename%010d.bmp
+ffmpeg -i mov1.webm -vf scale=640:-1 -r 1/1 ./mov1/$filename%010d.jpg
+./run_open_pose_multiple ./data/video/mov1 > ./data/annotations/mov1.json
+python prepare_data_gan.py
