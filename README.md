@@ -18,3 +18,8 @@ conda activate vitis-ai-tensorflow2
 cd /workspace/yoga-ai/
 
 sh build.sh
+
+
+# Movie
+
+ffmpeg -i file.webm -r 1/1 ./1/$filename%010d.bmp
