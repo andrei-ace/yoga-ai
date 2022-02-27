@@ -18,7 +18,7 @@ def residual_block(x: tf.Tensor, hidden: int) -> tf.Tensor:
     return Add()([x,y])
 
 def build_and_compile_model():
-    hidden = 256
+    hidden = 512
     inputs = Input(shape=(28,))
     x = layer(inputs, hidden)
     x = residual_block(x,hidden)
