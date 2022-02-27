@@ -173,5 +173,5 @@ def parse_example(example):
 
 def load_tfrecords():
     dataset = tf.data.TFRecordDataset(glob.glob('./data/Human36M_*.tfrecords'))
-    dataset = dataset.map(parse_example).map(lambda x,y: (tf.reshape(x,(-1,28)),tf.reshape(y,(-1,14))))
+    dataset = dataset.map(parse_example).map(lambda x,y: (tf.reshape(x,(28,)),tf.reshape(y,(14,))))
     return dataset

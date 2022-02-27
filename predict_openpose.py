@@ -1,5 +1,6 @@
 import json
 import sys
+import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
@@ -39,7 +40,7 @@ def draw_fig_3D_openpose(body3D_openpose, name):
     fig = plt.figure()
     ax = plt.axes(projection ='3d')
     # ax.view_init(elev=ax.elev, azim=ax.azim)
-    # ax.view_init(elev=15, azim=15)
+    # ax.view_init(elev=15, azim=-30)
 
     start = [14, 8, 9,14,11,12,14, 1, 1, 2, 3, 1, 5, 6]
     end   = [ 8, 9,10,11,12,13, 1, 0, 2, 3, 4, 5, 6, 7]
@@ -70,6 +71,7 @@ def draw_fig_3D_openpose(body3D_openpose, name):
 
 with open(sys.argv[1]) as json_data:
     data = json.load(json_data)
+    image_file_name = os.path.splitext(sys.argv[1])[0]
     data = np.array(data)
     body2D = np.append(data,[(data[8][0]+data[11][0])/2,(data[8][1]+data[11][1])/2])
     body2D = body2D.reshape(-1,2)
@@ -83,10 +85,10 @@ with open(sys.argv[1]) as json_data:
         body2D_camera = np.append(body2D_camera,[xc,yc])
     body2D_camera = body2D_camera.reshape(body2D.shape)
 
-    draw_fig_2D_openpose(body2D_camera, 'yoga_2d.png')
+    draw_fig_2D_openpose(body2D_camera, image_file_name+'_2D.jpg')
 
-    X = body2D_camera[:-1].reshape(1,1,28)
-    model = tf.keras.models.load_model('./model/simple/')
+    X = body2D_camera[:-1].reshape(1,28)
+    model = tf.keras.models.load_model('./model/residual/')
     Z = model.predict(X)
 
     body3D_camera = np.zeros((14,3))
@@ -100,7 +102,7 @@ with open(sys.argv[1]) as json_data:
         [xc,yc,zc,_] = np.matmul(CW,[x,y,z,1])
         body3D = np.append(body3D,[xc,yc,zc])
     body3D = body3D.reshape(body3D_camera.shape)
-    draw_fig_3D_openpose(body3D, 'yoga_3d.png')
+    draw_fig_3D_openpose(body3D, image_file_name+'_3D.jpg')
 
 
 

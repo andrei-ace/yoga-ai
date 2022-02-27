@@ -76,7 +76,7 @@ X,Y = list(dataset.take(300).as_numpy_iterator())[0]
 X=X[0]
 Y=Y[0]
 
-Z = model.predict(X.reshape(1,1,28))
+Z = model.predict(X.reshape(1,28))
 
 body3D_camera = np.zeros((14,3))
 body3D_camera[:,:2] = X.reshape(14,2)

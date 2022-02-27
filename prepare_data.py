@@ -15,7 +15,7 @@ def save_to_tfrecords(name):
                 body3D = du.to_openpose(body3D)
                 body3D = du.normalize(body3D)
                 azimuth = random.uniform(0, 2*np.pi)
-                altitude = random.uniform(-np.pi/12, np.pi/12)
+                altitude = random.uniform(-np.pi/18, np.pi/18)
                 WC = du.world_to_camera(azimuth,altitude,1)
                 body3D_camera = []
                 for i in range(len(body3D)-1):

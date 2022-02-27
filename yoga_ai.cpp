@@ -34,9 +34,21 @@ static cv::Mat process_result(cv::Mat& image, vitis::ai::OpenPoseResult results,
   return image;
 }
 
-int main(int argc, char *argv[])
+static void usage_jpeg(const char* progname) {
+  std::cout << "usage : " << progname << " <img_url> [<img_url> ...]"
+            << std::endl;
+}
+
+int main(int argc, char *argv[]) 
 {
-    auto image = cv::imread("yoga.jpg");
+    if (argc <= 1) {
+      usage_jpeg(argv[0]);
+      exit(1);
+    }
+    
+    auto image_file_name = std::string{argv[1]};
+
+    auto image = cv::imread(image_file_name);
     if (image.empty())
     {
         std::cerr << "cannot load image" << std::endl;
@@ -47,7 +59,21 @@ int main(int argc, char *argv[])
     int height = det->getInputHeight();
 
     auto results = det->run(image);
-    image = process_result(image, results, true);
+    image = process_result(image, results, true);    
+    
+    auto out_file =
+          image_file_name.substr(0, image_file_name.size() - 4) + "_result.jpg";
+
+    bool check = imwrite(out_file, image);
+    if (check == false) {
+        std::cerr << "cannot save image" << std::endl;
+        abort();
+    }
+
+    if(results.poses.size()<=1) {
+        std::cerr << "no pose found" << std::endl;
+        abort();
+    }
     for (size_t k = 1; k < results.poses.size(); ++k) {
         stringstream temp;
         temp << "[";
@@ -65,11 +91,5 @@ int main(int argc, char *argv[])
         }
         temp << "]";
         std::cout << temp.str() << std::endl;
-    }
-    
-    bool check = imwrite("result_yoga.jpg", image);
-    if (check == false) {
-        std::cerr << "cannot save image" << std::endl;
-        abort();
     }
 }
