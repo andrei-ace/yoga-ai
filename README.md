@@ -1,10 +1,10 @@
 # yoga-ai
 
-
-
 #
+```console
 ./start_gpu.sh
-
+```
+```console
 sudo usermod -a -G video $(whoami)
 sudo su $(whoami)
 cd /workspace/setup/vck5000/
@@ -18,27 +18,50 @@ sudo usermod -a -G video vitis-ai-user
 conda activate vitis-ai-tensorflow2
 cd /workspace/yoga-ai/
 sh build.sh
-
+```
 # 1. tfrecord
 # 2. train
 # 3. quantize
+```console
 python -u quantize.py --float_model model/simple/simple.h5 --quant_model model/simple/quant_simple.h5 --batchsize 64 --evaluate 2>&1 | tee quantize.log
-
+```
+```console
+python -u quantize.py --float_model model/article/article.h5 --quant_model model/article/quant_article.h5 --batchsize 64 --evaluate 2>&1 | tee quantize.log
+```
+```console
 python -u quantize.py --float_model model/residual/res.h5 --quant_model model/residual/quant_res.h5 --batchsize 64 --evaluate 2>&1 | tee quantize.log
+```
 
 # 4. compile
+```console
 vai_c_tensorflow2 --model model/simple/quant_simple.h5 --arch /opt/vitis_ai/compiler/arch/DPUCVDX8H/VCK5000/arch.json --output_dir model/simple --net_name simple
+```
+```console
 vai_c_tensorflow2 --model model/article/quant_article.h5 --arch /opt/vitis_ai/compiler/arch/DPUCVDX8H/VCK5000/arch.json --output_dir model/article --net_name article
+```
+```console
 vai_c_tensorflow2 --model model/residual/quant_res.h5 --arch /opt/vitis_ai/compiler/arch/DPUCVDX8H/VCK5000/arch.json --output_dir model/residual --net_name res
-
+```
 
 # 5
+```console
 xir png model/simple/simple.xmodel model/simple/simple.png
+```
+```console
 xir png model/article/article.xmodel model/article/article.png
+```
+```console
 xir png model/residual/res.xmodel model/residual/res.png
+```
 
 # Movie
 
+```console
 ffmpeg -i mov1.webm -vf scale=640:-1 -r 1/1 ./mov1/$filename%010d.jpg
+```
+```console
 ./run_open_pose_multiple ./data/video/mov1 > ./data/annotations/mov1.json
+```
+```console
 python prepare_data_gan.py
+```
