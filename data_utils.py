@@ -162,28 +162,35 @@ def to_openpose(bodyH3GG):
     ]
     return body3d_openpose
 
-def parse_example(example):
-    data = {
-        '2D': tf.io.FixedLenSequenceFeature([], tf.float32,allow_missing=True),
-        'Z': tf.io.FixedLenSequenceFeature([],tf.float32,allow_missing=True)
-    }
-    content = tf.io.parse_single_example(example, data)
-    return content['2D'], content['Z']
+def decode_fn(record_bytes):
+  return tf.io.parse_single_example(
+      # Data
+      record_bytes,
 
-def parse_example2D(example):
-    data = {
-        '2D': tf.io.FixedLenSequenceFeature([], tf.float32,allow_missing=True)
-    }
-    content = tf.io.parse_single_example(example, data)
-    return content['2D']
+      # Schema
+      {"x": tf.io.FixedLenFeature((28,), dtype=tf.float32),
+       "y": tf.io.FixedLenFeature((14,), dtype=tf.float32)}
+  )
+
+
+def decode_fn_2d(record_bytes):
+  return tf.io.parse_single_example(
+      # Data
+      record_bytes,
+
+      # Schema
+      {"x": tf.io.FixedLenFeature((28,), dtype=tf.float32),
+       "y": tf.io.FixedLenFeature((14,), dtype=tf.float32)}
+  )
 
 
 def load_tfrecords():
-    dataset = tf.data.TFRecordDataset(glob.glob('./data/Human36M_*.tfrecords'))
-    dataset = dataset.map(parse_example).map(lambda x,y: (tf.reshape(x,(28,)),tf.reshape(y,(14,))))
-    return dataset
+    tfrecord_files = tf.data.Dataset.list_files('data/Human36M_*.tfrecords', shuffle=False)
+    dataset = tf.data.TFRecordDataset(tfrecord_files)
+    return dataset.map(decode_fn).map(lambda example: (example['x'], example['y']))
+    
 
 def load_tfrecords2D():
-    dataset = tf.data.TFRecordDataset(glob.glob('./data/mov*.tfrecords'))
-    dataset = dataset.map(parse_example2D).map(lambda x: (tf.reshape(x,(28,))))
-    return dataset
+    tfrecord_files = tf.data.Dataset.list_files('data/mov*.tfrecordss', shuffle=False)
+    dataset = tf.data.TFRecordDataset(decode_fn_2d)
+    return dataset.map(decode_fn)

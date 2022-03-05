@@ -1,28 +1,28 @@
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.layers import Dense, Input, BatchNormalization, Dropout, Add, Activation
+import tensorflow.keras.layers as layers
+import tensorflow.keras.models as models
+import tensorflow.keras.optimizers as optimizers
 import data_utils as du
 
 def build_and_compile_model():
-    model = Sequential([
-        Input(shape=(28,)),
-        Dense(1024, activation='relu'),
-        Dense(512, activation='relu'),
-        Dense(1024, activation='relu'),
-        Dense(14)
-    ])
-    model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.001))
+    inputs = layers.Input(shape=(28,))
+    x = layers.Dense(256,activation='relu')(inputs)
+    x = layers.Dense(256,activation='relu')(x)
+    x = layers.Dense(256,activation='relu')(x)
+    x = layers.Dense(256,activation='relu')(x)
+    outputs = layers.Dense(14)(x)
+    model = models.Model(inputs=inputs, outputs=outputs)
+    model.compile(loss='mse', optimizer=optimizers.Adam(0.001))
     return model
 
-
 dataset = du.load_tfrecords()
-
-dataset = dataset.batch(512)
+dataset = dataset.batch(64, drop_remainder=False)
 
 model = build_and_compile_model()
 model.summary()
 
-model.fit(dataset, verbose=1, epochs=100)
+model.fit(dataset, verbose=1, epochs=200)
 
-model.save('./model/simple/')
+model.save('./model/simple/simple.h5')
+model = models.load_model('./model/simple/simple.h5')
+
+model.predict(dataset)

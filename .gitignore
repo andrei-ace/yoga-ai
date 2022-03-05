@@ -2,7 +2,9 @@ __pycache__/*
 data/annotations/*
 data/annotations.zip
 data/video/
+data/temp/
 *.png
 *.jpg
 experiment*
 *.json
+*.log

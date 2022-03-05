@@ -71,7 +71,7 @@ dataset = du.load_tfrecords()
 
 dataset = dataset.batch(1024)
 
-model = tf.keras.models.load_model('./model/simple/')
+model = tf.keras.models.load_model('./model/simple/simple.h5')
 X,Y = list(dataset.take(300).as_numpy_iterator())[0]
 X=X[0]
 Y=Y[0]

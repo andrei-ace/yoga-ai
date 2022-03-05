@@ -38,4 +38,4 @@ model.summary()
 
 model.fit(dataset, verbose=1, epochs=200)
 
-model.save('./model/article/')
+model.save('./model/article/article.h5')

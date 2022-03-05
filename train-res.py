@@ -23,7 +23,7 @@ def build_and_compile_model():
     x = layer(inputs, hidden)
     x = residual_block(x,hidden)
     x = residual_block(x,hidden)
-    x = residual_block(x,hidden)
+    # x = residual_block(x,hidden)
     x = residual_block(x,hidden)
     outputs = Dense(14)(x)
     model = Model(inputs=inputs, outputs=outputs)
@@ -37,6 +37,6 @@ dataset = dataset.batch(64)
 model = build_and_compile_model()
 model.summary()
 
-model.fit(dataset, verbose=1, epochs=200)
+model.fit(dataset, verbose=1, epochs=1)
 
-model.save('./model/residual/')
+model.save('./model/residual/res.h5')
