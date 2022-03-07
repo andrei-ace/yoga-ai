@@ -88,12 +88,15 @@ with open(sys.argv[1]) as json_data:
     draw_fig_2D_openpose(body2D_camera, image_file_name+'_simple_2D.jpg')
 
     X = body2D_camera[:-1].reshape(1,28)
-    model = tf.keras.models.load_model('./model/simple/')
-    Z = model.predict(X)
+    model = tf.keras.models.load_model('./model/simple/simple.h5')
+    Y = model.predict(X)
+
+    print("X:",X[0].tolist())
+    print("Y:",Y[0].tolist())
 
     body3D_camera = np.zeros((14,3))
     body3D_camera[:,:2] = X.reshape(14,2)
-    body3D_camera[:,2] = Z
+    body3D_camera[:,2] = Y
 
     CW = du.camera_to_world(1)
     body3D = []

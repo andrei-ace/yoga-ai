@@ -85,15 +85,18 @@ with open(sys.argv[1]) as json_data:
         body2D_camera = np.append(body2D_camera,[xc,yc])
     body2D_camera = body2D_camera.reshape(body2D.shape)
 
-    draw_fig_2D_openpose(body2D_camera, image_file_name+'_article_2D.jpg')
+    draw_fig_2D_openpose(body2D_camera, image_file_name+'_quant_article_2D.jpg')
 
     X = body2D_camera[:-1].reshape(1,28)
-    model = tf.keras.models.load_model('./model/article/')
-    Z = model.predict(X)
+    model = tf.keras.models.load_model('./model/article/quant_article.h5')
+    Y = model.predict(X)
+
+    print("X:",X[0].tolist())
+    print("Y:",Y[0].tolist())
 
     body3D_camera = np.zeros((14,3))
     body3D_camera[:,:2] = X.reshape(14,2)
-    body3D_camera[:,2] = Z
+    body3D_camera[:,2] = Y
 
     CW = du.camera_to_world(1)
     body3D = []
@@ -102,4 +105,4 @@ with open(sys.argv[1]) as json_data:
         [xc,yc,zc,_] = np.matmul(CW,[x,y,z,1])
         body3D = np.append(body3D,[xc,yc,zc])
     body3D = body3D.reshape(body3D_camera.shape)
-    draw_fig_3D_openpose(body3D, image_file_name+'_article_3D.jpg')
+    draw_fig_3D_openpose(body3D, image_file_name+'_quant_article_3D.jpg')

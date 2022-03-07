@@ -6,7 +6,27 @@ else
 fi
 
 CXX=${CXX:-g++}
-for file in $(ls *.cpp); do
+for file in $(ls src/*.cpp); do
 	filename=${file%.*}
-	$CXX -std=c++17 -O2 -I. -o ${filename} ${file} -lvitis_ai_library-openpose -lvitis_ai_library-dpu_task -lvitis_ai_library-xnnpp -lvitis_ai_library-model_config -lvitis_ai_library-math -lvart-util -lxir -pthread -ljson-c -lglog ${OPENCV_FLAGS} -lopencv_core -lopencv_videoio -lopencv_imgproc -lopencv_imgcodecs -lopencv_highgui
+	filename=${filename#src\/}
+	
+	$CXX -std=c++17 -O2 -I$PWD/src/common -I. $PWD/src/common/common.cpp \
+	-o build/${filename} ${file} \
+	-lvitis_ai_library-openpose \
+	-lvitis_ai_library-dpu_task \
+	-lvitis_ai_library-xnnpp \
+	-lvitis_ai_library-model_config \
+	-lvitis_ai_library-math \
+	-lvart-util \
+	-lxir \
+	-pthread \
+	-ljson-c \
+	-lglog \
+	-lvart-runner \
+	${OPENCV_FLAGS} \
+	-lopencv_core \
+	-lopencv_videoio \
+	-lopencv_imgproc \
+	-lopencv_imgcodecs \
+	-lopencv_highgui
 done

@@ -76,7 +76,12 @@ X,Y = list(dataset.take(300).as_numpy_iterator())[0]
 X=X[0]
 Y=Y[0]
 
-Z = model.predict(X.reshape(1,28))
+
+print("Y:",Y.tolist())
+Y = model.predict(X.reshape(1,28))
+print("X:",X.tolist())
+print("Y:",Y[0].tolist())
+
 
 body3D_camera = np.zeros((14,3))
 body3D_camera[:,:2] = X.reshape(14,2)
@@ -95,7 +100,7 @@ draw_fig_3D_openpose(body3D, 'real3D.png')
 
 body3D_camera = np.zeros((14,3))
 body3D_camera[:,:2] = X.reshape(14,2)
-body3D_camera[:,2] = Z
+body3D_camera[:,2] = Y
 
 CW = du.camera_to_world(1)
 body3D = []
