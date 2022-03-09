@@ -15,12 +15,19 @@ sudo mkdir /usr/share/vitis_ai_library/models
 tar -xzvf openpose_pruned_0_3-vck5000-DPUCVDX8H-r1.4.1.tar.gz
 sudo cp openpose_pruned_0_3 /usr/share/vitis_ai_library/models -r
 sudo usermod -a -G video vitis-ai-user
+/usr/bin/pip3 install matplotlib
 conda activate vitis-ai-tensorflow2
 cd /workspace/yoga-ai/
 sh build.sh
 ```
 # 1. tfrecord
+```console
+python prepare_data.py
+```
 # 2. train
+```console
+python train-simple.py
+```
 # 3. quantize
 ```console
 python -u quantize.py --float_model model/simple/simple.h5 --quant_model model/simple/quant_simple.h5 --batchsize 64 --evaluate 2>&1 | tee quantize.log
@@ -53,6 +60,10 @@ xir png model/article/article.xmodel model/article/article.png
 ```console
 xir png model/residual/res.xmodel model/residual/res.png
 ```
+
+# 6 
+
+./build/yoga-ai model/simple/simple.xmodel
 
 # Movie
 

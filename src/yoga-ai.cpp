@@ -1,19 +1,37 @@
+#define _USE_MATH_DEFINES
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <cmath>
 #include "common.h"
 #include "opencv2/opencv.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <vitis/ai/openpose.hpp>
+#include "matplotlibcpp.h"
 
+namespace plt = matplotlibcpp;
 using namespace std;
 using namespace cv;
 using namespace xir;
 using namespace vart;
 using Result = vitis::ai::OpenPoseResult::PosePoint;
 GraphInfo shapes;
+
+float CAMERA_TO_WORLD[4][4] = {
+    { 0,-1, 0, 0},
+    { 0, 0, 1, 0},
+    {-1, 0, 0, 0},
+    { 0, 0, 0, 1}};
+
+float CAMERA_TO_WORLD_TRANSPOSED[4][4] = {
+    { 0, 0,-1, 0},
+    {-1, 0, 0, 0},
+    { 0, 1, 0, 0},
+    { 0, 0, 0, 1}};
+
+Mat CAMERA_TO_WORLD_MAT = Mat(4,4,CV_32FC1,CAMERA_TO_WORLD_TRANSPOSED); 
 
 static cv::Mat process_result(cv::Mat &image, vitis::ai::OpenPoseResult results,
                               bool is_jpeg)
@@ -92,7 +110,7 @@ int main(int argc, char *argv[])
     // }
 
     float body[] = {
-        0.9602672482891879, 0.9755428071569374, 0.8031329873221553, 0.5957998025133866, 0.602350142057307, 0.5957998025133866, 0.2444330358254263, 0.896974070410659, -0.06983548610863854, 1.1981483383079317, 0.9428071720649567, 0.5172342782926325, 1.1872386016276208, 0.8053142921531125, 1.4142099549660538, 1.1588655761975546, 0.03491854618570045, -0.0982085115387048, 0.02619011433634655, -0.8183956960878085, 0.1309473591562098, -1.460033419043779, -0.03491854618570045, 0.0982085115387048, -0.4975928972374444, 0.5696112944398017, -0.23570139145054858, 1.1195828140871775
+        1.3474549608053594, 0.46383189124773727, 0.9423380184089432, 0.33466260481431975, 0.7309730050851595, 0.5225448395215646, 0.7133599208340091, 1.0274705930594976, 0.819042427495901, 1.4619440095928273, 0.9071118499066415, 0.0058716949428818666, 0.9071118499066415, -0.45208450020698665, 0.9951772711623961, -0.8865579167403164, -0.13210413361611195, 0.052841253330945914, -0.44915165360178655, -0.47557127997851234, -0.766199173587462, -1.0274705930594967, 0.13210413361611106, -0.052841253330945914, 0.6076774141721173, -0.5812537866404042, 0.9951772711623961, -0.9570142548999065
     };
 
     int8_t *data = new int8_t[batchSize * outSize];
@@ -128,14 +146,34 @@ int main(int argc, char *argv[])
 
     auto job_id = runner->execute_async(inputsPtr, outputsPtr);
     runner->wait(job_id.first, -1);
+
+    float open_pose_body[14][4];
     for (unsigned int n = 0; n < outSize; ++n)
     {
-        cout << (float)(FCResult[n] * output_scale) << ", ";
+        open_pose_body[n][0] = body[n*2];
+        open_pose_body[n][1] = body[n*2+1];
+        open_pose_body[n][2] = (float)(FCResult[n] * output_scale);
+        open_pose_body[n][3] = 1.;
     }
-    cout << endl;
-
     delete[] FCResult;
     delete[] data;
+
+    Mat bodyMat = Mat(14,4,CV_32FC1,open_pose_body);
+    Mat bodyMat_world = CAMERA_TO_WORLD_MAT * bodyMat.t();
+
+    cout << bodyMat << endl;
+    cout << endl;
+    cout << bodyMat_world.t() << endl;
+
+    // std::map<std::string, std::string> keywords;
+    // keywords.insert(std::pair<std::string, std::string>("label", "parametric curve") );
+
+    // plt::plot(x, y, keywords);
+    // plt::xlabel("x label");
+    // plt::ylabel("y label");
+    // // plt::set_zlabel("z label"); // set_zlabel rather than just zlabel, in accordance with the Axes3D method
+    // plt::legend();
+    // plt::save("imshow.png");;
 
     // VideoCapture cap(-1);
 

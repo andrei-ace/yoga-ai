@@ -95,7 +95,7 @@ with open(sys.argv[1]) as json_data:
     body3D_camera[:,:2] = X.reshape(14,2)
     body3D_camera[:,2] = Z
 
-    CW = du.camera_to_world(1)
+    CW = du.camera_to_world()
     body3D = []
     for i in range(len(body3D_camera)):
         [x,y,z] = body3D_camera[i]
@@ -122,7 +122,7 @@ with open(sys.argv[1]) as json_data:
 # body3D_camera[:,:2] = X.reshape(14,2)
 # body3D_camera[:,2] = Y
 
-# CW = du.camera_to_world(1)
+# CW = du.camera_to_world()
 # body3D = []
 # for i in range(len(body3D_camera)):
 #     [x,y,z] = body3D_camera[i]
@@ -137,7 +137,7 @@ with open(sys.argv[1]) as json_data:
 # body3D_camera[:,:2] = X.reshape(14,2)
 # body3D_camera[:,2] = Z
 
-# CW = du.camera_to_world(1)
+# CW = du.camera_to_world()
 # body3D = []
 # for i in range(len(body3D_camera)):
 #     [x,y,z] = body3D_camera[i]

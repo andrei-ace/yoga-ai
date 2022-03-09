@@ -12,6 +12,7 @@ for file in $(ls src/*.cpp); do
 	
 	$CXX -std=c++17 -O2 -I$PWD/src/common -I. $PWD/src/common/common.cpp \
 	-o build/${filename} ${file} \
+	-I/usr/include/python3.6m -lpython3.6m \
 	-lvitis_ai_library-openpose \
 	-lvitis_ai_library-dpu_task \
 	-lvitis_ai_library-xnnpp \

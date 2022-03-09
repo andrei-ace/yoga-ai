@@ -96,7 +96,7 @@ def length2D(p1,p2):
     return np.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
 
 
-def world_to_camera(rz, ry, d):
+def world_to_camera(rz, ry):
     RC = np.array([
         [ 0,-1, 0],
         [ 0, 0, 1],
@@ -118,11 +118,11 @@ def world_to_camera(rz, ry, d):
     ROTC = np.matmul(RC,np.matmul(RY,RZ)) 
     TRANSF = np.zeros((4, 4))
     TRANSF[:3,:3] = ROTC
-    TRANSF[2,3] = -d
+    TRANSF[2,3] = 0
     TRANSF[3,3] = 1
     return TRANSF
 
-def camera_to_world(d):
+def camera_to_world():
     RC = np.array([
         [ 0,-1, 0],
         [ 0, 0, 1],
@@ -131,7 +131,7 @@ def camera_to_world(d):
 
     TRANSF = np.zeros((4, 4))
     TRANSF[:3,:3] = RC.T
-    TRANSF[0,3] = -d
+    TRANSF[0,3] = 0
     TRANSF[3,3] = 1
     return TRANSF
 

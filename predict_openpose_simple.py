@@ -3,6 +3,7 @@ import sys
 import os
 import numpy as np
 import tensorflow as tf
+from tensorflow_model_optimization.quantization.keras import vitis_quantize
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, InputLayer
 import matplotlib.pyplot as plt
@@ -88,7 +89,7 @@ with open(sys.argv[1]) as json_data:
     draw_fig_2D_openpose(body2D_camera, image_file_name+'_simple_2D.jpg')
 
     X = body2D_camera[:-1].reshape(1,28)
-    model = tf.keras.models.load_model('./model/simple/simple.h5')
+    model = tf.keras.models.load_model('./model/simple/quant_simple.h5')
     Y = model.predict(X)
 
     print("X:",X[0].tolist())
@@ -98,11 +99,12 @@ with open(sys.argv[1]) as json_data:
     body3D_camera[:,:2] = X.reshape(14,2)
     body3D_camera[:,2] = Y
 
-    CW = du.camera_to_world(1)
+    CW = du.camera_to_world()
     body3D = []
     for i in range(len(body3D_camera)):
         [x,y,z] = body3D_camera[i]
         [xc,yc,zc,_] = np.matmul(CW,[x,y,z,1])
         body3D = np.append(body3D,[xc,yc,zc])
     body3D = body3D.reshape(body3D_camera.shape)
-    draw_fig_3D_openpose(body3D, image_file_name+'_simple_3D.jpg')
+    # draw_fig_3D_openpose(body3D, image_file_name+'_simple_3D.jpg')
+    print(body3D)
