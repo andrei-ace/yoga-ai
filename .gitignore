@@ -3,6 +3,7 @@ data/annotations/*
 data/annotations.zip
 data/video/
 data/temp/
+build/*
 *.png
 *.jpg
 experiment*

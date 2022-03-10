@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <cmath>
+#include <time.h>
 #include "common.h"
 #include "opencv2/opencv.hpp"
 #include <opencv2/core.hpp>
@@ -20,18 +21,20 @@ using Result = vitis::ai::OpenPoseResult::PosePoint;
 GraphInfo shapes;
 
 float CAMERA_TO_WORLD[4][4] = {
-    { 0,-1, 0, 0},
-    { 0, 0, 1, 0},
+    {0, -1, 0, 0},
+    {0, 0, 1, 0},
     {-1, 0, 0, 0},
-    { 0, 0, 0, 1}};
+    {0, 0, 0, 1}};
 
 float CAMERA_TO_WORLD_TRANSPOSED[4][4] = {
-    { 0, 0,-1, 0},
+    {0, 0, -1, 0},
     {-1, 0, 0, 0},
-    { 0, 1, 0, 0},
-    { 0, 0, 0, 1}};
+    {0, 1, 0, 0},
+    {0, 0, 0, 1}};
 
-Mat CAMERA_TO_WORLD_MAT = Mat(4,4,CV_32FC1,CAMERA_TO_WORLD_TRANSPOSED); 
+int num_frames = 120;
+string PLOT_IMAGE_NAME = "tmp_plot.png";
+Mat CAMERA_TO_WORLD_MAT = Mat(4, 4, CV_32FC1, CAMERA_TO_WORLD_TRANSPOSED);
 
 static cv::Mat process_result(cv::Mat &image, vitis::ai::OpenPoseResult results,
                               bool is_jpeg)
@@ -60,6 +63,56 @@ static cv::Mat process_result(cv::Mat &image, vitis::ai::OpenPoseResult results,
     return image;
 }
 
+void draw3DPlot(cv::Mat body, unsigned int rows, unsigned int cols)
+{
+    plt::figure_size(cols, rows);
+    cv::Mat anchor = (body.row(8) + body.row(11)) / 2;
+    body.push_back(anchor);
+    unsigned int start[] = {14, 8, 9, 14, 11, 12, 14, 1, 1, 2, 3, 1, 5, 6};
+    unsigned int end[] = {8, 9, 10, 11, 12, 13, 1, 0, 2, 3, 4, 5, 6, 7};
+    unsigned int colors[] = {1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0};
+
+    string rcolor = "blue";
+    string lcolor = "red";
+    vector<vector<float>> x;
+    vector<vector<float>> y;
+    vector<vector<float>> z;
+    for (auto i = 0; i < sizeof(start) / sizeof(start[0]); ++i)
+    {
+        map<string, string> keywords;
+        if (colors[i])
+        {
+            keywords.insert(std::pair<std::string, std::string>("c", lcolor));
+        }
+        else
+        {
+            keywords.insert(std::pair<std::string, std::string>("c", rcolor));
+        }
+        // Need to save the vectors for plotting to work
+        vector<float> xx{body.at<float>(start[i], 0), body.at<float>(end[i], 0)};
+        vector<float> yy{body.at<float>(start[i], 1), body.at<float>(end[i], 1)};
+        vector<float> zz{body.at<float>(start[i], 2), body.at<float>(end[i], 2)};
+        x.push_back(xx);
+        y.push_back(yy);
+        z.push_back(zz);
+        plt::plot3(x.at(i), y.at(i), z.at(i), keywords, 1);
+    }
+
+    float x_root = body.at<float>(14, 0);
+    float y_root = body.at<float>(14, 1);
+    float z_root = body.at<float>(14, 2);
+
+    plt::set_xlim3d(-1 + x_root, 1 + x_root, 1);
+    plt::set_ylim3d(-1 + y_root, 1 + y_root, 1);
+    plt::set_zlim3d(-1 + z_root, 1 + z_root, 1);
+
+    plt::xlabel("x");
+    plt::ylabel("y");
+    plt::set_zlabel("z");
+    plt::save(PLOT_IMAGE_NAME);
+    plt::close();
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -69,9 +122,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    // auto det = vitis::ai::OpenPose::create("openpose_pruned_0_3");
-    // int width = det->getInputWidth();
-    // int height = det->getInputHeight();
+    auto det = vitis::ai::OpenPose::create("openpose_pruned_0_3");
+    int width = det->getInputWidth();
+    int height = det->getInputHeight();
 
     auto graph = Graph::deserialize(argv[1]);
     auto subgraph = get_dpu_subgraph(graph.get());
@@ -102,136 +155,142 @@ int main(int argc, char *argv[])
 
     int batchSize = in_dims[0];
 
-    cout << "batch:" << batchSize << " size:" << inSize << endl;
+    std::vector<std::unique_ptr<vart::TensorBuffer>> inputs, outputs;
+    std::vector<vart::TensorBuffer *> inputsPtr, outputsPtr;
+    std::vector<std::shared_ptr<xir::Tensor>> batchTensors;
 
     // int8_t *data = new int8_t[inSize * batchSize];
     // for(unsigned int n = 0; n < inSize; ++n) {
     //     data[n] = (int8_t)(0.0 * input_scale);
     // }
 
-    float body[] = {
-        1.3474549608053594, 0.46383189124773727, 0.9423380184089432, 0.33466260481431975, 0.7309730050851595, 0.5225448395215646, 0.7133599208340091, 1.0274705930594976, 0.819042427495901, 1.4619440095928273, 0.9071118499066415, 0.0058716949428818666, 0.9071118499066415, -0.45208450020698665, 0.9951772711623961, -0.8865579167403164, -0.13210413361611195, 0.052841253330945914, -0.44915165360178655, -0.47557127997851234, -0.766199173587462, -1.0274705930594967, 0.13210413361611106, -0.052841253330945914, 0.6076774141721173, -0.5812537866404042, 0.9951772711623961, -0.9570142548999065
-    };
-
-    int8_t *data = new int8_t[batchSize * outSize];
-    for (unsigned int n = 0; n < inSize; ++n)
+    VideoCapture cap(-1);
+    time_t start, end;
+    // Check if camera opened successfully
+    if (!cap.isOpened())
     {
-        data[n] = body[n] * input_scale;
+        cout << "Error opening video stream or file" << endl;
+        return -1;
     }
 
-    int8_t *FCResult = new int8_t[batchSize * outSize];
+    double fps = cap.get(CAP_PROP_FPS);
+    int frame_idx=0;
+    // Start time
+	time(&start);
+    while (1)
+    {            
+        frame_idx = frame_idx % 120;
+        Mat frame;
+        // Capture frame-by-frame
+        cap >> frame;
 
-    std::vector<std::unique_ptr<vart::TensorBuffer>> inputs, outputs;
+        // If the frame is empty, break immediately
+        if (frame.empty())
+            break;
 
-    std::vector<vart::TensorBuffer *> inputsPtr, outputsPtr;
-    std::vector<std::shared_ptr<xir::Tensor>> batchTensors;
+        auto results = det->run(frame);
+        frame = process_result(frame, results, true);
 
-    /* in/out tensor refactory for batch inout/output */
-    batchTensors.push_back(std::shared_ptr<xir::Tensor>(
-        xir::Tensor::create(inputTensors[0]->get_name(), in_dims,
-                            xir::DataType{xir::DataType::XINT, 8u})));
-    inputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
-        data, batchTensors.back().get()));
-    batchTensors.push_back(std::shared_ptr<xir::Tensor>(
-        xir::Tensor::create(outputTensors[0]->get_name(), out_dims,
-                            xir::DataType{xir::DataType::XINT, 8u})));
-    outputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
-        FCResult, batchTensors.back().get()));
+        for (size_t k = 1; k < results.poses.size(); ++k)
+        {
+            for (size_t i = 0; i < results.poses[k].size(); ++i)
+            {
+                // if (results.poses[k][i].type == 1)
+                // {
+                //     cout << results.poses[k][i].point << endl;
+                // }
+            }
+        }
 
-    /*tensor buffer input/output */
-    inputsPtr.clear();
-    outputsPtr.clear();
-    inputsPtr.push_back(inputs[0].get());
-    outputsPtr.push_back(outputs[0].get());
+        float body[] = {
+            1.3474549608053594, 0.46383189124773727, 0.9423380184089432, 0.33466260481431975, 0.7309730050851595, 0.5225448395215646, 0.7133599208340091, 1.0274705930594976, 0.819042427495901, 1.4619440095928273, 0.9071118499066415, 0.0058716949428818666, 0.9071118499066415, -0.45208450020698665, 0.9951772711623961, -0.8865579167403164, -0.13210413361611195, 0.052841253330945914, -0.44915165360178655, -0.47557127997851234, -0.766199173587462, -1.0274705930594967, 0.13210413361611106, -0.052841253330945914, 0.6076774141721173, -0.5812537866404042, 0.9951772711623961, -0.9570142548999065};
 
-    auto job_id = runner->execute_async(inputsPtr, outputsPtr);
-    runner->wait(job_id.first, -1);
+        int8_t *data = new int8_t[batchSize * outSize];
+        for (unsigned int n = 0; n < inSize; ++n)
+        {
+            data[n] = body[n] * input_scale;
+        }
 
-    float open_pose_body[14][4];
-    for (unsigned int n = 0; n < outSize; ++n)
-    {
-        open_pose_body[n][0] = body[n*2];
-        open_pose_body[n][1] = body[n*2+1];
-        open_pose_body[n][2] = (float)(FCResult[n] * output_scale);
-        open_pose_body[n][3] = 1.;
+        int8_t *FCResult = new int8_t[batchSize * outSize];
+        inputs.clear();
+        outputs.clear();
+        inputsPtr.clear();
+        outputsPtr.clear();
+        batchTensors.clear();
+       
+        /* in/out tensor refactory for batch inout/output */
+        batchTensors.push_back(std::shared_ptr<xir::Tensor>(
+            xir::Tensor::create(inputTensors[0]->get_name(), in_dims,
+                                xir::DataType{xir::DataType::XINT, 8u})));
+        inputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
+            data, batchTensors.back().get()));
+        batchTensors.push_back(std::shared_ptr<xir::Tensor>(
+            xir::Tensor::create(outputTensors[0]->get_name(), out_dims,
+                                xir::DataType{xir::DataType::XINT, 8u})));
+        outputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
+            FCResult, batchTensors.back().get()));
+
+        /*tensor buffer input/output */
+        inputsPtr.clear();
+        outputsPtr.clear();
+        inputsPtr.push_back(inputs[0].get());
+        outputsPtr.push_back(outputs[0].get());
+
+        auto job_id = runner->execute_async(inputsPtr, outputsPtr);
+        runner->wait(job_id.first, -1);
+
+        float open_pose_body[14][4];
+        for (unsigned int n = 0; n < outSize; ++n)
+        {
+            open_pose_body[n][0] = body[n * 2];
+            open_pose_body[n][1] = body[n * 2 + 1];
+            open_pose_body[n][2] = (float)(FCResult[n] * output_scale);
+            open_pose_body[n][3] = 1.;
+        }
+        delete[] FCResult;
+        delete[] data;
+
+        Mat bodyMat = Mat(14, 4, CV_32FC1, open_pose_body);
+        Mat bodyMat_world = (CAMERA_TO_WORLD_MAT * bodyMat.t()).t();
+        draw3DPlot(bodyMat_world, frame.rows, frame.cols);
+        
+        Mat plot = imread(PLOT_IMAGE_NAME);
+        int rows = max(frame.rows, plot.rows);
+        int cols = frame.cols + plot.cols;
+
+        // Create a black image
+        Mat3b res(rows, cols, Vec3b(0,0,0));
+
+        // Copy images in correct position
+        frame.copyTo(res(Rect(0, 0, frame.cols, frame.rows)));
+        plot.copyTo(res(Rect(frame.cols, 0, plot.cols, plot.rows)));
+
+        // Display the resulting frame
+        imshow("Yoga-AI", res);
+
+        // Press  ESC on keyboard to exit
+        char c = (char)waitKey(25);
+        if (c == 27)
+            break;        
+        ++frame_idx;
+        if(frame_idx%num_frames==0) {
+            // End Time
+	        time(&end);
+            double seconds = difftime(end, start);
+	        cout << "Time taken : " << seconds << " seconds" << endl;
+	        // Calculate frames per second
+	        fps  = num_frames / seconds;
+	        cout << "Estimated frames per second : " << fps << endl;
+            // Reset
+	        time(&start);
+        }
     }
-    delete[] FCResult;
-    delete[] data;
 
-    Mat bodyMat = Mat(14,4,CV_32FC1,open_pose_body);
-    Mat bodyMat_world = CAMERA_TO_WORLD_MAT * bodyMat.t();
+    // When everything done, release the video capture object
+    cap.release();
 
-    cout << bodyMat << endl;
-    cout << endl;
-    cout << bodyMat_world.t() << endl;
-
-    // std::map<std::string, std::string> keywords;
-    // keywords.insert(std::pair<std::string, std::string>("label", "parametric curve") );
-
-    // plt::plot(x, y, keywords);
-    // plt::xlabel("x label");
-    // plt::ylabel("y label");
-    // // plt::set_zlabel("z label"); // set_zlabel rather than just zlabel, in accordance with the Axes3D method
-    // plt::legend();
-    // plt::save("imshow.png");;
-
-    // VideoCapture cap(-1);
-
-    // // Check if camera opened successfully
-    // if (!cap.isOpened())
-    // {
-    //     cout << "Error opening video stream or file" << endl;
-    //     return -1;
-    // }
-
-    // while (1)
-    // {
-
-    //     Mat frame;
-    //     // Capture frame-by-frame
-    //     cap >> frame;
-
-    //     // If the frame is empty, break immediately
-    //     if (frame.empty())
-    //         break;
-
-    //     auto results = det->run(frame);
-    //     frame = process_result(frame, results, true);
-
-    //     for (size_t k = 1; k < results.poses.size(); ++k)
-    //     {
-    //         for (size_t i = 0; i < results.poses[k].size(); ++i)
-    //         {
-    //             // if (results.poses[k][i].type == 1)
-    //             // {
-    //             //     cout << results.poses[k][i].point << endl;
-    //             // }
-    //         }
-    //     }
-
-    //     // std::vector<std::unique_ptr<vart::TensorBuffer>> inputs, outputs;
-
-    //     // inputs.push_back(std::make_unique<CpuFlatTensorBuffer>(imageInputs, batchTensors.back().get()));
-    //     // std::vector<vart::TensorBuffer*> inputsPtr, outputsPtr;
-
-    //     // inputsPtr.push_back(inputs[0].get());
-    //     // auto job_id = runner->execute_async(inputsPtr, outputsPtr);
-    //     // runner->wait(job_id.first, -1);
-
-    //     // Display the resulting frame
-    //     imshow("Yoga-AI", frame);
-
-    //     // Press  ESC on keyboard to exit
-    //     char c = (char)waitKey(25);
-    //     if (c == 27)
-    //         break;
-    // }
-
-    // // When everything done, release the video capture object
-    // cap.release();
-
-    // // Closes all the frames
-    // destroyAllWindows();
+    // Closes all the frames
+    destroyAllWindows();
 
     return 0;
 }

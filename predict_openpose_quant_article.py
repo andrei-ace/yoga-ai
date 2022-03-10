@@ -92,9 +92,6 @@ with open(sys.argv[1]) as json_data:
     model = tf.keras.models.load_model('./model/article/quant_article.h5')
     Y = model.predict(X)
 
-    print("X:",X[0].tolist())
-    print("Y:",Y[0].tolist())
-
     body3D_camera = np.zeros((14,3))
     body3D_camera[:,:2] = X.reshape(14,2)
     body3D_camera[:,2] = Y

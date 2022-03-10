@@ -34,7 +34,7 @@ def draw_fig_2D_openpose(body2D, name):
     plt.savefig(name)
 
 
-def draw_fig_3D_openpose(body3D_openpose, name):
+def draw_fig_3D_openpose(body3D_openpose, name):    
     body3D = np.zeros(shape=(15,3))
     body3D[:-1] = body3D_openpose 
     body3D[14] = [(body3D[8][0]+body3D[11][0])/2,(body3D[8][1]+body3D[11][1])/2,(body3D[8][2]+body3D[11][2])/2]
@@ -89,11 +89,8 @@ with open(sys.argv[1]) as json_data:
     draw_fig_2D_openpose(body2D_camera, image_file_name+'_simple_2D.jpg')
 
     X = body2D_camera[:-1].reshape(1,28)
-    model = tf.keras.models.load_model('./model/simple/quant_simple.h5')
+    model = tf.keras.models.load_model('./model/simple/simple.h5')
     Y = model.predict(X)
-
-    print("X:",X[0].tolist())
-    print("Y:",Y[0].tolist())
 
     body3D_camera = np.zeros((14,3))
     body3D_camera[:,:2] = X.reshape(14,2)
@@ -106,5 +103,4 @@ with open(sys.argv[1]) as json_data:
         [xc,yc,zc,_] = np.matmul(CW,[x,y,z,1])
         body3D = np.append(body3D,[xc,yc,zc])
     body3D = body3D.reshape(body3D_camera.shape)
-    # draw_fig_3D_openpose(body3D, image_file_name+'_simple_3D.jpg')
-    print(body3D)
+    draw_fig_3D_openpose(body3D, image_file_name+'_simple_3D.jpg')
