@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 #include <cmath>
-#include <time.h>
+#include <chrono>
 #include "common.h"
 #include "opencv2/opencv.hpp"
 #include <opencv2/core.hpp>
@@ -14,6 +14,7 @@
 
 namespace plt = matplotlibcpp;
 using namespace std;
+using namespace std::chrono;
 using namespace cv;
 using namespace xir;
 using namespace vart;
@@ -32,7 +33,6 @@ float CAMERA_TO_WORLD_TRANSPOSED[4][4] = {
     {0, 1, 0, 0},
     {0, 0, 0, 1}};
 
-int num_frames = 120;
 string PLOT_IMAGE_NAME = "tmp_plot.png";
 Mat CAMERA_TO_WORLD_MAT = Mat(4, 4, CV_32FC1, CAMERA_TO_WORLD_TRANSPOSED);
 
@@ -60,6 +60,19 @@ static cv::Mat process_result(cv::Mat &image, vitis::ai::OpenPoseResult results,
             }
         }
     }
+    return image;
+}
+
+static cv::Mat display_fps(cv::Mat &image, size_t fps)
+{
+    cv::putText(image,
+                to_string(fps) + " fps",
+                cv::Point(20, 20),              // Coordinates (Bottom-left corner of the text string in the image)
+                cv::FONT_HERSHEY_COMPLEX_SMALL, // Font
+                1.0,                            // Scale. 2.0 = 2x bigger
+                cv::Scalar(0, 0, 0),
+                1,            // Line Thickness (Optional)
+                cv::LINE_AA); // Anti-alias (Optional, see version note)
     return image;
 }
 
@@ -173,13 +186,11 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    double fps = cap.get(CAP_PROP_FPS);
-    int frame_idx=0;
-    // Start time
-	time(&start);
+    size_t frame_counter = 0;
+    time_point<steady_clock> begin_time = steady_clock::now(), new_time;
+    size_t fps = 0;
     while (1)
-    {            
-        frame_idx = frame_idx % 120;
+    {
         Mat frame;
         // Capture frame-by-frame
         cap >> frame;
@@ -191,69 +202,154 @@ int main(int argc, char *argv[])
         auto results = det->run(frame);
         frame = process_result(frame, results, true);
 
+        vector<Point3f> bodyVec;
         for (size_t k = 1; k < results.poses.size(); ++k)
         {
             for (size_t i = 0; i < results.poses[k].size(); ++i)
             {
-                // if (results.poses[k][i].type == 1)
-                // {
-                //     cout << results.poses[k][i].point << endl;
-                // }
+                if (results.poses[k][i].type == 1)
+                {
+                    Point2f point = results.poses[k][i].point;
+                    Point3f point3D(point.x, point.y, 1.);
+                    bodyVec.push_back(point3D);
+                }
             }
         }
-
-        float body[] = {
-            1.3474549608053594, 0.46383189124773727, 0.9423380184089432, 0.33466260481431975, 0.7309730050851595, 0.5225448395215646, 0.7133599208340091, 1.0274705930594976, 0.819042427495901, 1.4619440095928273, 0.9071118499066415, 0.0058716949428818666, 0.9071118499066415, -0.45208450020698665, 0.9951772711623961, -0.8865579167403164, -0.13210413361611195, 0.052841253330945914, -0.44915165360178655, -0.47557127997851234, -0.766199173587462, -1.0274705930594967, 0.13210413361611106, -0.052841253330945914, 0.6076774141721173, -0.5812537866404042, 0.9951772711623961, -0.9570142548999065};
-
-        int8_t *data = new int8_t[batchSize * outSize];
-        for (unsigned int n = 0; n < inSize; ++n)
+        if (bodyVec.size() == 14)
         {
-            data[n] = body[n] * input_scale;
+            Point3f hip = (bodyVec.at(8) - bodyVec.at(11)) / 2;
+            Point3f diff = hip - bodyVec.at(0);
+            // ignore third coordinate
+            float scale_hip_head = 1. / cv::sqrt(diff.x * diff.x + diff.y * diff.y);
+            float image_to_camera_mat[3][3] = {
+                {-1, 0, 0},
+                { 0, -1,0},
+                { 0, 0, 1}};
+            Mat image_to_camera = Mat(3, 3, CV_32FC1, image_to_camera_mat);
+            float scale_mat[3][3] = {
+                {scale_hip_head, 0, 0},
+                {0, scale_hip_head, 0},
+                {0, 0, 1}};
+            Mat scale = Mat(3, 3, CV_32FC1, scale_mat);
+            float transpose_mat[3][3] = {
+                {1, 0, -hip.x},
+                {0, 1, -hip.y},
+                {0, 0, 1}};
+            Mat center = Mat(3, 3, CV_32FC1, transpose_mat);
+            Mat body = Mat(14, 3, CV_32FC1, bodyVec.data());
+            Mat transform = scale *  center * image_to_camera;
+            Mat bodyNormalized = (transform * body.t()).t();
+            int8_t *data = new int8_t[batchSize * outSize];
+            for (size_t i = 0; i < inSize; ++i)
+            {
+                if (i % 2)
+                {
+                    // x
+                    data[i] = bodyNormalized.at<float>(i / 2, 0) * input_scale;
+                }
+                else
+                {
+                    // y
+                    data[i] = bodyNormalized.at<float>(i / 2, 1) * input_scale;
+                }
+            }
+
+            int8_t *FCResult = new int8_t[batchSize * outSize];
+            inputs.clear();
+            outputs.clear();
+            inputsPtr.clear();
+            outputsPtr.clear();
+            batchTensors.clear();
+
+            /* in/out tensor refactory for batch inout/output */
+            batchTensors.push_back(std::shared_ptr<xir::Tensor>(
+                xir::Tensor::create(inputTensors[0]->get_name(), in_dims,
+                                    xir::DataType{xir::DataType::XINT, 8u})));
+            inputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
+                data, batchTensors.back().get()));
+            batchTensors.push_back(std::shared_ptr<xir::Tensor>(
+                xir::Tensor::create(outputTensors[0]->get_name(), out_dims,
+                                    xir::DataType{xir::DataType::XINT, 8u})));
+            outputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
+                FCResult, batchTensors.back().get()));
+
+            /*tensor buffer input/output */
+            inputsPtr.clear();
+            outputsPtr.clear();
+            inputsPtr.push_back(inputs[0].get());
+            outputsPtr.push_back(outputs[0].get());
+
+            auto job_id = runner->execute_async(inputsPtr, outputsPtr);
+            runner->wait(job_id.first, -1);
+
+            float open_pose_body[14][4];
+            for (unsigned int n = 0; n < outSize; ++n)
+            {
+                open_pose_body[n][0] = bodyNormalized.at<float>(n,0);
+                open_pose_body[n][1] = bodyNormalized.at<float>(n,1);
+                open_pose_body[n][2] = (float)(FCResult[n] * output_scale);
+                open_pose_body[n][3] = 1.;
+            }
+            delete[] FCResult;
+            delete[] data;
+
+            Mat bodyMat = Mat(14, 4, CV_32FC1, open_pose_body);
+            Mat bodyMat_world = (CAMERA_TO_WORLD_MAT * bodyMat.t()).t();
+            draw3DPlot(bodyMat_world, frame.rows, frame.cols);            
         }
 
-        int8_t *FCResult = new int8_t[batchSize * outSize];
-        inputs.clear();
-        outputs.clear();
-        inputsPtr.clear();
-        outputsPtr.clear();
-        batchTensors.clear();
-       
-        /* in/out tensor refactory for batch inout/output */
-        batchTensors.push_back(std::shared_ptr<xir::Tensor>(
-            xir::Tensor::create(inputTensors[0]->get_name(), in_dims,
-                                xir::DataType{xir::DataType::XINT, 8u})));
-        inputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
-            data, batchTensors.back().get()));
-        batchTensors.push_back(std::shared_ptr<xir::Tensor>(
-            xir::Tensor::create(outputTensors[0]->get_name(), out_dims,
-                                xir::DataType{xir::DataType::XINT, 8u})));
-        outputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
-            FCResult, batchTensors.back().get()));
+        // float body[] = {
+        //     1.3474549608053594, 0.46383189124773727, 0.9423380184089432, 0.33466260481431975, 0.7309730050851595, 0.5225448395215646, 0.7133599208340091, 1.0274705930594976, 0.819042427495901, 1.4619440095928273, 0.9071118499066415, 0.0058716949428818666, 0.9071118499066415, -0.45208450020698665, 0.9951772711623961, -0.8865579167403164, -0.13210413361611195, 0.052841253330945914, -0.44915165360178655, -0.47557127997851234, -0.766199173587462, -1.0274705930594967, 0.13210413361611106, -0.052841253330945914, 0.6076774141721173, -0.5812537866404042, 0.9951772711623961, -0.9570142548999065};
 
-        /*tensor buffer input/output */
-        inputsPtr.clear();
-        outputsPtr.clear();
-        inputsPtr.push_back(inputs[0].get());
-        outputsPtr.push_back(outputs[0].get());
+        // int8_t *data = new int8_t[batchSize * outSize];
+        // for (unsigned int n = 0; n < inSize; ++n)
+        // {
+        //     data[n] = body[n] * input_scale;
+        // }
 
-        auto job_id = runner->execute_async(inputsPtr, outputsPtr);
-        runner->wait(job_id.first, -1);
+        // int8_t *FCResult = new int8_t[batchSize * outSize];
+        // inputs.clear();
+        // outputs.clear();
+        // inputsPtr.clear();
+        // outputsPtr.clear();
+        // batchTensors.clear();
 
-        float open_pose_body[14][4];
-        for (unsigned int n = 0; n < outSize; ++n)
-        {
-            open_pose_body[n][0] = body[n * 2];
-            open_pose_body[n][1] = body[n * 2 + 1];
-            open_pose_body[n][2] = (float)(FCResult[n] * output_scale);
-            open_pose_body[n][3] = 1.;
-        }
-        delete[] FCResult;
-        delete[] data;
+        // /* in/out tensor refactory for batch inout/output */
+        // batchTensors.push_back(std::shared_ptr<xir::Tensor>(
+        //     xir::Tensor::create(inputTensors[0]->get_name(), in_dims,
+        //                         xir::DataType{xir::DataType::XINT, 8u})));
+        // inputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
+        //     data, batchTensors.back().get()));
+        // batchTensors.push_back(std::shared_ptr<xir::Tensor>(
+        //     xir::Tensor::create(outputTensors[0]->get_name(), out_dims,
+        //                         xir::DataType{xir::DataType::XINT, 8u})));
+        // outputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
+        //     FCResult, batchTensors.back().get()));
 
-        Mat bodyMat = Mat(14, 4, CV_32FC1, open_pose_body);
-        Mat bodyMat_world = (CAMERA_TO_WORLD_MAT * bodyMat.t()).t();
-        draw3DPlot(bodyMat_world, frame.rows, frame.cols);
-        
+        // /*tensor buffer input/output */
+        // inputsPtr.clear();
+        // outputsPtr.clear();
+        // inputsPtr.push_back(inputs[0].get());
+        // outputsPtr.push_back(outputs[0].get());
+
+        // auto job_id = runner->execute_async(inputsPtr, outputsPtr);
+        // runner->wait(job_id.first, -1);
+
+        // float open_pose_body[14][4];
+        // for (unsigned int n = 0; n < outSize; ++n)
+        // {
+        //     open_pose_body[n][0] = body[n * 2];
+        //     open_pose_body[n][1] = body[n * 2 + 1];
+        //     open_pose_body[n][2] = (float)(FCResult[n] * output_scale);
+        //     open_pose_body[n][3] = 1.;
+        // }
+        // delete[] FCResult;
+        // delete[] data;
+
+        // Mat bodyMat = Mat(14, 4, CV_32FC1, open_pose_body);
+        // Mat bodyMat_world = (CAMERA_TO_WORLD_MAT * bodyMat.t()).t();
+        // draw3DPlot(bodyMat_world, frame.rows, frame.cols);
+
         Mat plot = imread(PLOT_IMAGE_NAME);
         int rows = max(frame.rows, plot.rows);
         int cols = frame.cols + plot.cols;
@@ -269,20 +365,16 @@ int main(int argc, char *argv[])
         imshow("Yoga-AI", res);
 
         // Press  ESC on keyboard to exit
-        char c = (char)waitKey(25);
+        char c = (char)waitKey(1);
         if (c == 27)
-            break;        
-        ++frame_idx;
-        if(frame_idx%num_frames==0) {
-            // End Time
-	        time(&end);
-            double seconds = difftime(end, start);
-	        cout << "Time taken : " << seconds << " seconds" << endl;
-	        // Calculate frames per second
-	        fps  = num_frames / seconds;
-	        cout << "Estimated frames per second : " << fps << endl;
-            // Reset
-	        time(&start);
+            break;
+        frame_counter++;
+        new_time = steady_clock::now();
+        if (new_time - begin_time >= seconds{1})
+        {
+            fps = frame_counter;
+            frame_counter = 0;
+            begin_time = new_time;
         }
     }
 

@@ -5,6 +5,8 @@
 ./start_gpu.sh
 ```
 ```console
+cp /tmp/.Xauthority ~/
+sudo chown vitis-ai-user:vitis-ai-group ~/.Xauthority
 sudo usermod -a -G video $(whoami)
 sudo su $(whoami)
 cd /workspace/setup/vck5000/
