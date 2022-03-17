@@ -37,6 +37,6 @@ dataset = dataset.batch(64)
 model = build_and_compile_model()
 model.summary()
 
-model.fit(dataset, verbose=1, epochs=1)
+model.fit(dataset, verbose=1, epochs=200)
 
 model.save('./model/residual/res.h5')

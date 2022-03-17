@@ -5,10 +5,10 @@ import data_utils as du
 
 def build_and_compile_model():
     inputs = layers.Input(shape=(28,))
-    x = layers.Dense(256,activation='relu')(inputs)
-    x = layers.Dense(256,activation='relu')(x)
-    x = layers.Dense(256,activation='relu')(x)
-    x = layers.Dense(256,activation='relu')(x)
+    x = layers.Dense(512,activation='relu')(inputs)
+    x = layers.Dense(512,activation='relu')(x)
+    x = layers.Dense(512,activation='relu')(x)
+    x = layers.Dense(512,activation='relu')(x)
     outputs = layers.Dense(14)(x)
     model = models.Model(inputs=inputs, outputs=outputs)
     model.compile(loss='mse', optimizer=optimizers.Adam(0.001))

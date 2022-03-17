@@ -44,7 +44,7 @@ OPENPOSE_NAMES[13] = 'RFoot'
 OPENPOSE_NAMES[14]  = 'Hip' #root node, computed
 
 def normalize(body3D):
-    scale_hip_head = 1./length(body3D[14], body3D[1])
+    scale_hip_head = 1./length(body3D[14], body3D[0])
     T = np.matmul(scale(scale_hip_head),translate(body3D[14]))
     centered = []
     for i in range(len(body3D)):
@@ -53,7 +53,7 @@ def normalize(body3D):
     return centered.reshape((-1,3,))
 
 def normalize2D(body2D):
-    scale_hip_head = 1./length2D(body2D[14], body2D[1])
+    scale_hip_head = 1./length2D(body2D[14], body2D[0])
     T = np.matmul(scale2D(scale_hip_head),translate2D(body2D[14]))
     centered = []
     for i in range(len(body2D)):

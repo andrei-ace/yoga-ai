@@ -22,19 +22,13 @@ using Result = vitis::ai::OpenPoseResult::PosePoint;
 GraphInfo shapes;
 
 float CAMERA_TO_WORLD[4][4] = {
-    {0, -1, 0, 0},
-    {0, 0, 1, 0},
+    { 0, 0,-1, 0},
     {-1, 0, 0, 0},
-    {0, 0, 0, 1}};
-
-float CAMERA_TO_WORLD_TRANSPOSED[4][4] = {
-    {0, 0, -1, 0},
-    {-1, 0, 0, 0},
-    {0, 1, 0, 0},
-    {0, 0, 0, 1}};
+    { 0, 1, 0, 0},
+    { 0, 0, 0, 1}};
 
 string PLOT_IMAGE_NAME = "tmp_plot.png";
-Mat CAMERA_TO_WORLD_MAT = Mat(4, 4, CV_32FC1, CAMERA_TO_WORLD_TRANSPOSED);
+Mat CAMERA_TO_WORLD_MAT = Mat(4, 4, CV_32FC1, CAMERA_TO_WORLD);
 
 static cv::Mat process_result(cv::Mat &image, vitis::ai::OpenPoseResult results,
                               bool is_jpeg)
@@ -115,9 +109,9 @@ void draw3DPlot(cv::Mat body, unsigned int rows, unsigned int cols)
     float y_root = body.at<float>(14, 1);
     float z_root = body.at<float>(14, 2);
 
-    plt::set_xlim3d(-1 + x_root, 1 + x_root, 1);
-    plt::set_ylim3d(-1 + y_root, 1 + y_root, 1);
-    plt::set_zlim3d(-1 + z_root, 1 + z_root, 1);
+    plt::set_xlim3d(-1.2,1.2, 1);
+    plt::set_ylim3d(-1.2,1.2, 1);
+    plt::set_zlim3d(-1.2,1.2, 1);
 
     plt::xlabel("x");
     plt::ylabel("y");
@@ -172,11 +166,6 @@ int main(int argc, char *argv[])
     std::vector<vart::TensorBuffer *> inputsPtr, outputsPtr;
     std::vector<std::shared_ptr<xir::Tensor>> batchTensors;
 
-    // int8_t *data = new int8_t[inSize * batchSize];
-    // for(unsigned int n = 0; n < inSize; ++n) {
-    //     data[n] = (int8_t)(0.0 * input_scale);
-    // }
-
     VideoCapture cap(-1);
     time_t start, end;
     // Check if camera opened successfully
@@ -201,6 +190,7 @@ int main(int argc, char *argv[])
 
         auto results = det->run(frame);
         frame = process_result(frame, results, true);
+        frame = display_fps(frame, fps);
 
         vector<Point3f> bodyVec;
         for (size_t k = 1; k < results.poses.size(); ++k)
@@ -217,7 +207,7 @@ int main(int argc, char *argv[])
         }
         if (bodyVec.size() == 14)
         {
-            Point3f hip = (bodyVec.at(8) - bodyVec.at(11)) / 2;
+            Point3f hip = (bodyVec.at(8) + bodyVec.at(11)) / 2;
             Point3f diff = hip - bodyVec.at(0);
             // ignore third coordinate
             float scale_hip_head = 1. / cv::sqrt(diff.x * diff.x + diff.y * diff.y);
@@ -232,12 +222,12 @@ int main(int argc, char *argv[])
                 {0, 0, 1}};
             Mat scale = Mat(3, 3, CV_32FC1, scale_mat);
             float transpose_mat[3][3] = {
-                {1, 0, -hip.x},
-                {0, 1, -hip.y},
+                {1, 0, hip.x},
+                {0, 1, hip.y},
                 {0, 0, 1}};
             Mat center = Mat(3, 3, CV_32FC1, transpose_mat);
             Mat body = Mat(14, 3, CV_32FC1, bodyVec.data());
-            Mat transform = scale *  center * image_to_camera;
+            Mat transform = scale * center * image_to_camera;
             Mat bodyNormalized = (transform * body.t()).t();
             int8_t *data = new int8_t[batchSize * outSize];
             for (size_t i = 0; i < inSize; ++i)
@@ -297,58 +287,6 @@ int main(int argc, char *argv[])
             Mat bodyMat_world = (CAMERA_TO_WORLD_MAT * bodyMat.t()).t();
             draw3DPlot(bodyMat_world, frame.rows, frame.cols);            
         }
-
-        // float body[] = {
-        //     1.3474549608053594, 0.46383189124773727, 0.9423380184089432, 0.33466260481431975, 0.7309730050851595, 0.5225448395215646, 0.7133599208340091, 1.0274705930594976, 0.819042427495901, 1.4619440095928273, 0.9071118499066415, 0.0058716949428818666, 0.9071118499066415, -0.45208450020698665, 0.9951772711623961, -0.8865579167403164, -0.13210413361611195, 0.052841253330945914, -0.44915165360178655, -0.47557127997851234, -0.766199173587462, -1.0274705930594967, 0.13210413361611106, -0.052841253330945914, 0.6076774141721173, -0.5812537866404042, 0.9951772711623961, -0.9570142548999065};
-
-        // int8_t *data = new int8_t[batchSize * outSize];
-        // for (unsigned int n = 0; n < inSize; ++n)
-        // {
-        //     data[n] = body[n] * input_scale;
-        // }
-
-        // int8_t *FCResult = new int8_t[batchSize * outSize];
-        // inputs.clear();
-        // outputs.clear();
-        // inputsPtr.clear();
-        // outputsPtr.clear();
-        // batchTensors.clear();
-
-        // /* in/out tensor refactory for batch inout/output */
-        // batchTensors.push_back(std::shared_ptr<xir::Tensor>(
-        //     xir::Tensor::create(inputTensors[0]->get_name(), in_dims,
-        //                         xir::DataType{xir::DataType::XINT, 8u})));
-        // inputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
-        //     data, batchTensors.back().get()));
-        // batchTensors.push_back(std::shared_ptr<xir::Tensor>(
-        //     xir::Tensor::create(outputTensors[0]->get_name(), out_dims,
-        //                         xir::DataType{xir::DataType::XINT, 8u})));
-        // outputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
-        //     FCResult, batchTensors.back().get()));
-
-        // /*tensor buffer input/output */
-        // inputsPtr.clear();
-        // outputsPtr.clear();
-        // inputsPtr.push_back(inputs[0].get());
-        // outputsPtr.push_back(outputs[0].get());
-
-        // auto job_id = runner->execute_async(inputsPtr, outputsPtr);
-        // runner->wait(job_id.first, -1);
-
-        // float open_pose_body[14][4];
-        // for (unsigned int n = 0; n < outSize; ++n)
-        // {
-        //     open_pose_body[n][0] = body[n * 2];
-        //     open_pose_body[n][1] = body[n * 2 + 1];
-        //     open_pose_body[n][2] = (float)(FCResult[n] * output_scale);
-        //     open_pose_body[n][3] = 1.;
-        // }
-        // delete[] FCResult;
-        // delete[] data;
-
-        // Mat bodyMat = Mat(14, 4, CV_32FC1, open_pose_body);
-        // Mat bodyMat_world = (CAMERA_TO_WORLD_MAT * bodyMat.t()).t();
-        // draw3DPlot(bodyMat_world, frame.rows, frame.cols);
 
         Mat plot = imread(PLOT_IMAGE_NAME);
         int rows = max(frame.rows, plot.rows);
