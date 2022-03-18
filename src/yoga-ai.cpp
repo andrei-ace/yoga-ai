@@ -22,10 +22,10 @@ using Result = vitis::ai::OpenPoseResult::PosePoint;
 GraphInfo shapes;
 
 float CAMERA_TO_WORLD[4][4] = {
-    { 0, 0,-1, 0},
+    {0, 0, -1, 0},
     {-1, 0, 0, 0},
-    { 0, 1, 0, 0},
-    { 0, 0, 0, 1}};
+    {0, 1, 0, 0},
+    {0, 0, 0, 1}};
 
 string PLOT_IMAGE_NAME = "tmp_plot.png";
 Mat CAMERA_TO_WORLD_MAT = Mat(4, 4, CV_32FC1, CAMERA_TO_WORLD);
@@ -109,9 +109,9 @@ void draw3DPlot(cv::Mat body, unsigned int rows, unsigned int cols)
     float y_root = body.at<float>(14, 1);
     float z_root = body.at<float>(14, 2);
 
-    plt::set_xlim3d(-1.2,1.2, 1);
-    plt::set_ylim3d(-1.2,1.2, 1);
-    plt::set_zlim3d(-1.2,1.2, 1);
+    plt::set_xlim3d(-1.2, 1.2, 1);
+    plt::set_ylim3d(-1.2, 1.2, 1);
+    plt::set_zlim3d(-1.2, 1.2, 1);
 
     plt::xlabel("x");
     plt::ylabel("y");
@@ -213,8 +213,8 @@ int main(int argc, char *argv[])
             float scale_hip_head = 1. / cv::sqrt(diff.x * diff.x + diff.y * diff.y);
             float image_to_camera_mat[3][3] = {
                 {-1, 0, 0},
-                { 0, -1,0},
-                { 0, 0, 1}};
+                {0, -1, 0},
+                {0, 0, 1}};
             Mat image_to_camera = Mat(3, 3, CV_32FC1, image_to_camera_mat);
             float scale_mat[3][3] = {
                 {scale_hip_head, 0, 0},
@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
             Mat body = Mat(14, 3, CV_32FC1, bodyVec.data());
             Mat transform = scale * center * image_to_camera;
             Mat bodyNormalized = (transform * body.t()).t();
-            int8_t *data = new int8_t[batchSize * outSize];
+            int8_t *data = new int8_t[batchSize * inSize];
             for (size_t i = 0; i < inSize; ++i)
             {
                 if (i % 2)
@@ -275,8 +275,8 @@ int main(int argc, char *argv[])
             float open_pose_body[14][4];
             for (unsigned int n = 0; n < outSize; ++n)
             {
-                open_pose_body[n][0] = bodyNormalized.at<float>(n,0);
-                open_pose_body[n][1] = bodyNormalized.at<float>(n,1);
+                open_pose_body[n][0] = bodyNormalized.at<float>(n, 0);
+                open_pose_body[n][1] = bodyNormalized.at<float>(n, 1);
                 open_pose_body[n][2] = (float)(FCResult[n] * output_scale);
                 open_pose_body[n][3] = 1.;
             }
@@ -285,42 +285,45 @@ int main(int argc, char *argv[])
 
             Mat bodyMat = Mat(14, 4, CV_32FC1, open_pose_body);
             Mat bodyMat_world = (CAMERA_TO_WORLD_MAT * bodyMat.t()).t();
-            draw3DPlot(bodyMat_world, frame.rows, frame.cols);            
+            draw3DPlot(bodyMat_world, frame.rows, frame.cols);
         }
 
         Mat plot = imread(PLOT_IMAGE_NAME);
-        int rows = max(frame.rows, plot.rows);
-        int cols = frame.cols + plot.cols;
+        int rows = frame.rows;
+        int cols = frame.cols * 2;
 
         // Create a black image
-        Mat3b res(rows, cols, Vec3b(0,0,0));
+        Mat3b res(rows, cols, Vec3b(0, 0, 0));
 
         // Copy images in correct position
         frame.copyTo(res(Rect(0, 0, frame.cols, frame.rows)));
-        plot.copyTo(res(Rect(frame.cols, 0, plot.cols, plot.rows)));
+        if (!plot.empty())
+        {
+            plot.copyTo(res(Rect(frame.cols, 0, plot.cols, plot.rows)));
+        }
 
         // Display the resulting frame
         imshow("Yoga-AI", res);
 
-        // Press  ESC on keyboard to exit
-        char c = (char)waitKey(1);
-        if (c == 27)
-            break;
-        frame_counter++;
-        new_time = steady_clock::now();
-        if (new_time - begin_time >= seconds{1})
-        {
-            fps = frame_counter;
-            frame_counter = 0;
-            begin_time = new_time;
+            // Press  ESC on keyboard to exit
+            char c = (char)waitKey(1);
+            if (c == 27)
+                break;
+            frame_counter++;
+            new_time = steady_clock::now();
+            if (new_time - begin_time >= seconds{1})
+            {
+                fps = frame_counter;
+                frame_counter = 0;
+                begin_time = new_time;
+            }
         }
+
+        // When everything done, release the video capture object
+        cap.release();
+
+        // Closes all the frames
+        destroyAllWindows();
+
+        return 0;
     }
-
-    // When everything done, release the video capture object
-    cap.release();
-
-    // Closes all the frames
-    destroyAllWindows();
-
-    return 0;
-}
