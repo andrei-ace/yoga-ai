@@ -22,11 +22,8 @@ def draw_fig_2D_openpose(body3D_openpose, name):
         y = [body3D[start[i],1],body3D[end[i],1]]
         plt.plot(x,y, c = lcolor if colors[i] else rcolor)
 
-    x_root = body3D[14][0]
-    y_root = body3D[14][1]
-
-    plt.xlim([2+x_root, -2+x_root])
-    plt.ylim([-2+y_root, 2+y_root])
+    plt.xlim([1.2, -1.2])
+    plt.ylim([-1.2, 1.2])
 
     plt.xlabel("-x")
     plt.ylabel("y")
@@ -53,13 +50,9 @@ def draw_fig_3D_openpose(body3D_openpose, name):
         z = [body3D[start[i],2],body3D[end[i],2]]
         ax.plot(x,y,z, c = lcolor if colors[i] else rcolor)
 
-    x_root = body3D[14][0]
-    y_root = body3D[14][1]
-    z_root = body3D[14][2]
-
-    ax.set_xlim3d([-1+x_root, 1+x_root])
-    ax.set_ylim3d([-1+y_root, 1+y_root])
-    ax.set_zlim3d([-1+z_root, 1+z_root])
+    ax.set_xlim3d([-1.2,1.2])
+    ax.set_ylim3d([-1.2,1.2])
+    ax.set_zlim3d([-1.2,1.2])
 
     ax.set_xlabel("x")
     ax.set_ylabel("y")
@@ -67,21 +60,14 @@ def draw_fig_3D_openpose(body3D_openpose, name):
     plt.savefig(name)
 
 
-dataset = du.load_tfrecords()
+batch_size = 64
+dataset = du.load_tfrecords().shuffle(1000*batch_size, reshuffle_each_iteration=True)
+dataset = dataset.batch(batch_size)
 
-dataset = dataset.batch(1024)
-
-model = tf.keras.models.load_model('./model/simple/simple.h5')
-X,Y = list(dataset.take(300).as_numpy_iterator())[0]
+model = tf.keras.models.load_model('./model/article/article.h5')
+X,Y = list(dataset.take(8).as_numpy_iterator())[0]
 X=X[0]
 Y=Y[0]
-
-
-print("Y:",Y.tolist())
-Y = model.predict(X.reshape(1,28))
-print("X:",X.tolist())
-print("Y:",Y[0].tolist())
-
 
 body3D_camera = np.zeros((14,3))
 body3D_camera[:,:2] = X.reshape(14,2)
@@ -97,6 +83,8 @@ body3D = body3D.reshape(body3D_camera.shape)
 
 draw_fig_2D_openpose(body3D_camera, 'real2D.png')
 draw_fig_3D_openpose(body3D, 'real3D.png')
+
+Y = model.predict(X.reshape(1,28))
 
 body3D_camera = np.zeros((14,3))
 body3D_camera[:,:2] = X.reshape(14,2)

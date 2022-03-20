@@ -72,7 +72,7 @@ static cv::Mat display_fps(cv::Mat &image, size_t fps)
 
 void draw3DPlot(cv::Mat body, unsigned int rows, unsigned int cols)
 {
-    plt::figure_size(cols, rows);
+    plt::figure_size(cols, rows);    
     cv::Mat anchor = (body.row(8) + body.row(11)) / 2;
     body.push_back(anchor);
     unsigned int start[] = {14, 8, 9, 14, 11, 12, 14, 1, 1, 2, 3, 1, 5, 6};
@@ -128,6 +128,8 @@ int main(int argc, char *argv[])
         cout << "Usage of yoga-ai: ./yoga-ai [model_file]" << endl;
         return -1;
     }
+
+    remove(PLOT_IMAGE_NAME.c_str());
 
     auto det = vitis::ai::OpenPose::create("openpose_pruned_0_3");
     int width = det->getInputWidth();
@@ -305,25 +307,26 @@ int main(int argc, char *argv[])
         // Display the resulting frame
         imshow("Yoga-AI", res);
 
-            // Press  ESC on keyboard to exit
-            char c = (char)waitKey(1);
-            if (c == 27)
-                break;
-            frame_counter++;
-            new_time = steady_clock::now();
-            if (new_time - begin_time >= seconds{1})
-            {
-                fps = frame_counter;
-                frame_counter = 0;
-                begin_time = new_time;
-            }
+        // Press  ESC on keyboard to exit
+        char c = (char)waitKey(1);
+        if (c == 27)
+            break;
+        frame_counter++;
+        new_time = steady_clock::now();
+        if (new_time - begin_time >= seconds{1})
+        {
+            fps = frame_counter;
+            frame_counter = 0;
+            begin_time = new_time;
         }
-
-        // When everything done, release the video capture object
-        cap.release();
-
-        // Closes all the frames
-        destroyAllWindows();
-
-        return 0;
     }
+
+    // When everything done, release the video capture object
+    cap.release();
+
+    // Closes all the frames
+    destroyAllWindows();
+    remove(PLOT_IMAGE_NAME.c_str());
+
+    return 0;
+}

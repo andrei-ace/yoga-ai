@@ -46,6 +46,13 @@ Mat CAMERA_TO_WORLD_MAT = Mat(4, 4, CV_32FC1, CAMERA_TO_WORLD);
 
 using Result = OpenPoseResult::PosePoint;
 
+void dpuOutputIn2FP32(int8_t* outputAddr, float* buffer, int size,
+                      float output_scale) {
+  for (int idx = 0; idx < size; idx++) {
+    buffer[idx] = outputAddr[idx] * output_scale;
+  }
+}
+
 void draw3DPlot(cv::Mat body, unsigned int rows, unsigned int cols)
 {
     plt::figure_size(cols, rows);
@@ -142,35 +149,27 @@ vector<Mat> run2D_to_3D(unique_ptr<Runner> &runner, vector<OpenPoseResult> resul
     vector<Mat> results3D;
     vector<Mat> validBodies;
     vector<vector<Mat>> batchedValidBodies;
-    GraphInfo shapes;
-    auto inputTensors = runner->get_input_tensors();
-    auto outputTensors = runner->get_output_tensors();
 
-    /*get in/out tensor shape*/
-    int inputCnt = inputTensors.size();
-    int outputCnt = outputTensors.size();
-    TensorShape inshapes[inputCnt];
-    TensorShape outshapes[outputCnt];
+    TensorShape inshapes[1];
+    TensorShape outshapes[1];
+
+    GraphInfo shapes;
     shapes.inTensorList = inshapes;
     shapes.outTensorList = outshapes;
-    getTensorShape(runner.get(), &shapes, inputCnt, outputCnt);
+    getTensorShape(runner.get(), &shapes, 1, 1);
 
-    /* get in/out tensors and dims*/
-    auto out_dims = outputTensors[0]->get_shape();
-    auto in_dims = inputTensors[0]->get_shape();
+    auto inTensors = cloneTensorBuffer(runner->get_input_tensors());
+    auto outTensors = cloneTensorBuffer(runner->get_output_tensors());
 
-    auto input_scale = get_input_scale(inputTensors[0]);
-    auto output_scale = get_output_scale(outputTensors[0]);
+    int batchSize = inTensors[0]->get_shape().at(0);
+    int width = inshapes[0].width;
+    int height = inshapes[0].height;
+    int inSize = inshapes[0].size;
+    int outSize = outshapes[0].size;
 
-    /*get shape info*/
-    int outSize = shapes.outTensorList[0].size;
-    int inSize = shapes.inTensorList[0].size;
+    auto input_scale = get_input_scale(runner->get_input_tensors()[0]);
+    auto output_scale = get_output_scale(runner->get_output_tensors()[0]);
 
-    int batchSize = in_dims[0];
-
-    std::vector<std::unique_ptr<vart::TensorBuffer>> inputs, outputs;
-    std::vector<vart::TensorBuffer *> inputsPtr, outputsPtr;
-    std::vector<std::shared_ptr<xir::Tensor>> batchTensors;
     for (size_t r = 0; r < results_2d.size(); ++r)
     {
         OpenPoseResult result = results_2d.at(r);
@@ -233,51 +232,37 @@ vector<Mat> run2D_to_3D(unique_ptr<Runner> &runner, vector<OpenPoseResult> resul
     for (size_t i = 0; i < batchedValidBodies.size(); ++i)
     {
         vector<Mat> batch = batchedValidBodies.at(i);
-        int8_t *data = new int8_t[batchSize * inSize];
+        int8_t *datain = new int8_t[inSize * batchSize];
+        int8_t *dataresult = new int8_t[outSize * batchSize];
         for (size_t j = 0; j < batch.size(); ++j)
         {
             Mat bodyNormalized = batch.at(j);
             for (size_t n = 0; n < inSize; ++n)
             {
-                if (n % 2)
+                if (n % 2 == 0)
                 {
                     // x
-                    data[j * batchSize + n] = bodyNormalized.at<float>(n / 2, 0) * input_scale;
+                    datain[j * inSize + n] = bodyNormalized.at<float>(n / 2, 0) * input_scale;
                 }
                 else
                 {
                     // y
-                    data[j * batchSize + n] = bodyNormalized.at<float>(n / 2, 1) * input_scale;
+                    datain[j * inSize + n] = bodyNormalized.at<float>(n / 2, 1) * input_scale;
                 }
             }
         }
-        int8_t *FCResult = new int8_t[batchSize * outSize];
-        inputs.clear();
-        outputs.clear();
-        inputsPtr.clear();
-        outputsPtr.clear();
-        batchTensors.clear();
 
-        /* in/out tensor refactory for batch inout/output */
-        batchTensors.push_back(std::shared_ptr<xir::Tensor>(
-            xir::Tensor::create(inputTensors[0]->get_name(), in_dims,
-                                xir::DataType{xir::DataType::XINT, 8u})));
-        inputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
-            data, batchTensors.back().get()));
-        batchTensors.push_back(std::shared_ptr<xir::Tensor>(
-            xir::Tensor::create(outputTensors[0]->get_name(), out_dims,
-                                xir::DataType{xir::DataType::XINT, 8u})));
-        outputs.push_back(std::make_unique<CpuFlatTensorBuffer>(
-            FCResult, batchTensors.back().get()));
-
-        /*tensor buffer input/output */
-        inputsPtr.clear();
-        outputsPtr.clear();
+        vector<unique_ptr<vart::TensorBuffer>> inputs, outputs;
+        inputs.push_back(make_unique<CpuFlatTensorBuffer>(datain, inTensors[0].get()));
+        outputs.push_back(make_unique<CpuFlatTensorBuffer>(dataresult, outTensors[0].get()));
+        vector<vart::TensorBuffer *> inputsPtr, outputsPtr;
         inputsPtr.push_back(inputs[0].get());
         outputsPtr.push_back(outputs[0].get());
 
         auto job_id = runner->execute_async(inputsPtr, outputsPtr);
         runner->wait(job_id.first, -1);
+        vector<float> results(outSize * batchSize);
+        dpuOutputIn2FP32(dataresult, results.data(), outSize, output_scale);
         for (size_t j = 0; j < batch.size(); ++j)
         {
             Mat bodyNormalized = batch.at(j);
@@ -286,31 +271,25 @@ vector<Mat> run2D_to_3D(unique_ptr<Runner> &runner, vector<OpenPoseResult> resul
             {
                 open_pose_body[n][0] = bodyNormalized.at<float>(n, 0);
                 open_pose_body[n][1] = bodyNormalized.at<float>(n, 1);
-                open_pose_body[n][2] = (float)(FCResult[j * batchSize + n] * output_scale);
+                open_pose_body[n][2] = results.at(j*outSize + n);
                 open_pose_body[n][3] = 1.;
             }
             Mat bodyMat = Mat(14, 4, CV_32FC1, open_pose_body);
             Mat bodyMat_world = (CAMERA_TO_WORLD_MAT * bodyMat.t()).t();
             results3D.push_back(bodyMat_world);
         }
-        delete[] FCResult;
-        delete[] data;
+        delete[] datain;
+        delete[] dataresult;
     }
 
     return results3D;
 }
 
-void run_3D_pose(string model)
+void run_3D_pose(unique_ptr<OpenPose> &det, unique_ptr<Runner> &runner)
 {
-    auto det = OpenPose::create("openpose_pruned_0_3");
-    int width = det->getInputWidth();
-    int height = det->getInputHeight();
-
-    auto graph = Graph::deserialize(model);
-    auto subgraph = get_dpu_subgraph(graph.get());
-    auto runner = Runner::create_runner(subgraph[0], "run");
-
     vector<Mat> frames;
+    vector<OpenPoseResult> results_2d;
+    vector<Mat> results_3d;
     while (run_program)
     {
         frames.clear();
@@ -322,26 +301,35 @@ void run_3D_pose(string model)
         }
         frame_queue_mutex.unlock();
 
-        vector<OpenPoseResult> results_2d = det->run(frames);
-        vector<Mat> results_3d = run2D_to_3D(runner, results_2d);
+        results_2d.clear();
+        results_3d.clear();
 
-        result_vector_3D_mutex.lock();
-        for (size_t i = 0; i < results_3d.size(); ++i)
+        if (!frames.empty())
         {
-            result_vector_3D.push_back(results_3d.at(i));
+            vector<OpenPoseResult> results_2d_temp = det->run(frames);
+            results_2d.insert(results_2d.begin(), begin(results_2d_temp), end(results_2d_temp));
+
+            vector<Mat> results_3d_temp = run2D_to_3D(runner, results_2d);
+            results_3d.insert(results_3d.begin(), begin(results_3d_temp), end(results_3d_temp));
+
+            for (size_t i = 0; i < results_2d.size(); ++i)
+            {
+                Mat frame = frames.at(i);
+                OpenPoseResult result2D = results_2d.at(i);
+                frame = process_result(frame, result2D);
+                result_queue_mutex.lock();
+                result_queue.push(frame);
+                result_queue_mutex.unlock();
+            }
+
+            result_vector_3D_mutex.lock();
+            for (size_t i = 0; i < results_3d.size(); ++i)
+            {
+                result_vector_3D.push_back(results_3d.at(i));
+            }
+            result_vector_3D_mutex.unlock();
             result_vector_3D_cv.notify_all();
         }
-        result_vector_3D_mutex.unlock();
-
-        result_queue_mutex.lock();
-        for (size_t i = 0; i < results_2d.size(); ++i)
-        {
-            Mat frame = frames.at(i);
-            OpenPoseResult result2D = results_2d.at(i);
-            frame = process_result(frame, result2D);
-            result_queue.push(frame);
-        }
-        result_queue_mutex.unlock();
     }
 }
 
@@ -375,9 +363,16 @@ int main(int argc, char *argv[])
         cout << "Usage of yoga-ai: ./yoga-ai [model_file]" << endl;
         return -1;
     }
+    auto det = OpenPose::create("openpose_pruned_0_3");
+    int width = det->getInputWidth();
+    int height = det->getInputHeight();
+
+    auto graph = Graph::deserialize(argv[1]);
+    auto subgraph = get_dpu_subgraph(graph.get());
+    auto runner = Runner::create_runner(subgraph[0], "run");
     remove(PLOT_IMAGE_NAME.c_str());
     VideoCapture cap(-1);
-    thread pose_th(run_3D_pose, argv[1]);
+    thread pose_th(run_3D_pose, ref(det), ref(runner));
     pose_th.detach();
     time_t start, end;
     // Check if camera opened successfully
@@ -398,6 +393,7 @@ int main(int argc, char *argv[])
     Mat plot;
     while (1)
     {
+        bool skip = false;
         Mat frame;
         // Capture frame-by-frame
         cap >> frame;
@@ -411,12 +407,20 @@ int main(int argc, char *argv[])
         frame_queue_mutex.unlock();
 
         result_queue_mutex.lock();
-        if (result_queue.size())
+        if (!result_queue.empty())
         {
             frame = result_queue.front();
             result_queue.pop();
         }
+        else
+        {
+            skip = true;
+        }
         result_queue_mutex.unlock();
+        if (skip)
+        {
+            continue;
+        }
 
         frame = display_fps(frame, fps);
 

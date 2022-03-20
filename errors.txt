@@ -1,0 +1,7 @@
+[UNILOG][INFO] Target architecture: DPUCVDX8H_ISA1_F2W2
+[UNILOG][INFO] Compile mode: dpu
+[UNILOG][INFO] Debug mode: function
+[UNILOG][INFO] Target architecture: DPUCVDX8H_ISA1_F2W2
+[UNILOG][INFO] Graph name: functional_1, with op num: 63
+[UNILOG][INFO] Begin to compile...
+[UNILOG][FATAL][XCOM_DATA_OUTRANGE][Data value is out of range!] 

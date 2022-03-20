@@ -29,5 +29,8 @@ for file in $(ls src/*.cpp); do
 	-lopencv_videoio \
 	-lopencv_imgproc \
 	-lopencv_imgcodecs \
+	-lopencv_calib3d \
+	-lopencv_objdetect \
+	-lopencv_features2d \
 	-lopencv_highgui
 done

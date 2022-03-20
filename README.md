@@ -64,9 +64,9 @@ xir png model/residual/res.xmodel model/residual/res.png
 ```
 
 # 6 
-
-./build/yoga-ai model/simple/simple.xmodel
-
+```console
+./build/yoga-ai-mt model/article/article.xmodel
+```
 # Movie
 
 ```console

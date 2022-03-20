@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, InputLayer
+from tensorflow_model_optimization.quantization.keras import vitis_quantize
 import matplotlib.pyplot as plt
 import data_utils as du
 
@@ -21,11 +22,8 @@ def draw_fig_2D_openpose(body2D, name):
         y = [body2D[start[i],1],body2D[end[i],1]]
         plt.plot(x,y, c = lcolor if colors[i] else rcolor)
 
-    x_root = body2D[14][0]
-    y_root = body2D[14][1]
-
-    plt.xlim([2+x_root, -2+x_root])
-    plt.ylim([-2+y_root, 2+y_root])
+    plt.xlim([1.2, -1.2])
+    plt.ylim([-1.2, 1.2])
 
     plt.xlabel("-x")
     plt.ylabel("y")
@@ -39,8 +37,6 @@ def draw_fig_3D_openpose(body3D_openpose, name):
     body3D[14] = [(body3D[8][0]+body3D[11][0])/2,(body3D[8][1]+body3D[11][1])/2,(body3D[8][2]+body3D[11][2])/2]
     fig = plt.figure()
     ax = plt.axes(projection ='3d')
-    # ax.view_init(elev=ax.elev, azim=ax.azim)
-    # ax.view_init(elev=15, azim=-30)
 
     start = [14, 8, 9,14,11,12,14, 1, 1, 2, 3, 1, 5, 6]
     end   = [ 8, 9,10,11,12,13, 1, 0, 2, 3, 4, 5, 6, 7]
@@ -54,13 +50,9 @@ def draw_fig_3D_openpose(body3D_openpose, name):
         z = [body3D[start[i],2],body3D[end[i],2]]
         ax.plot(x,y,z, c = lcolor if colors[i] else rcolor)
 
-    x_root = body3D[14][0]
-    y_root = body3D[14][1]
-    z_root = body3D[14][2]
-
-    ax.set_xlim3d([-1+x_root, 1+x_root])
-    ax.set_ylim3d([-1+y_root, 1+y_root])
-    ax.set_zlim3d([-1+z_root, 1+z_root])
+    ax.set_xlim3d([-1.2,1.2])
+    ax.set_ylim3d([-1.2,1.2])
+    ax.set_zlim3d([-1.2,1.2])
 
     ax.set_xlabel("x")
     ax.set_ylabel("y")
@@ -88,7 +80,7 @@ with open(sys.argv[1]) as json_data:
     draw_fig_2D_openpose(body2D_camera, image_file_name+'_article_2D.jpg')
 
     X = body2D_camera[:-1].reshape(1,28)
-    model = tf.keras.models.load_model('./model/article/article.h5')
+    model = tf.keras.models.load_model('./model/article/quant_article.h5')
     Y = model.predict(X)
 
     body3D_camera = np.zeros((14,3))
