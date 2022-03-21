@@ -5,6 +5,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Input, BatchNormalization, Dropout, Add, Activation
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.models import load_model
+from tensorflow.keras.callbacks import ReduceLROnPlateau
 import data_utils as du
 
 
@@ -31,8 +32,8 @@ def build_and_compile_model():
     model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.001))
     return model
 
-batch_size = 1280
-dataset = du.load_tfrecords().shuffle(100*batch_size, reshuffle_each_iteration=True)
+batch_size = 64
+dataset = du.load_tfrecords().shuffle(1000*batch_size, reshuffle_each_iteration=True)
 dataset = dataset.batch(batch_size)
 
 model_fname = './model/residual/res.h5'
@@ -43,7 +44,9 @@ else:
 
 model.summary()
 
-model.fit(dataset, verbose=1, epochs=10)
+reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.2,
+                              patience=5, min_lr=0.00001)
+model.fit(dataset, verbose=1, epochs=200, callbacks=[reduce_lr])
 
 if os.path.isfile(model_fname):
     os.rename(model_fname, model_fname+".bak")

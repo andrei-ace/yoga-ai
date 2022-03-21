@@ -10,7 +10,7 @@ for file in $(ls src/*.cpp); do
 	filename=${file%.*}
 	filename=${filename#src\/}
 	
-	$CXX -std=c++17 -O2 -I$PWD/src/common -I. $PWD/src/common/common.cpp \
+	$CXX -std=c++17 -O2 -I$PWD/src/common -I. $PWD/src/common/common.cpp $PWD/src/common/pose.cpp \
 	-o build/${filename} ${file} \
 	-I/usr/include/python3.6m -lpython3.6m \
 	-lvitis_ai_library-openpose \
