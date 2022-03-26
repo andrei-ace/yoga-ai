@@ -32,7 +32,6 @@ def save_to_tfrecords(name):
 
 
 def to_example(body3D_openpose):
-    x, y = np.random.random(), np.random.random()
     x = body3D_openpose[:, 0:2].flatten()
     y = body3D_openpose[:, 2].flatten()
     return tf.train.Example(features=tf.train.Features(feature={

@@ -70,11 +70,18 @@ xir png model/residual/res.xmodel model/residual/res.png
 # Movie
 
 ```console
-ffmpeg -i mov1.webm -vf scale=640:-1 -r 1/1 ./mov1/$filename%010d.jpg
+mkdir -p ./data/video/mov1
+ffmpeg -i ./data/video/mov1.webm -vf scale=640:-1 -r 1/1 ./data/video/mov1/$filename%010d.jpg
 ```
 ```console
-./run_open_pose_multiple ./data/video/mov1 > ./data/annotations/mov1.json
+./build/yoga-ai-multiple ./data/video/mov1 > ./data/video/mov1.json
 ```
 ```console
-python prepare_data_gan.py
+python prepare_data_gan.py ./data/video/
+
+python train-gan.py
+
+python -u quantize.py --float_model model/gan/gan.h5 --quant_model model/gan/quant_gan.h5 --batchsize 64 --evaluate 2>&1 | tee quantize.log
+
+vai_c_tensorflow2 --model model/gan/quant_gan.h5 --arch /opt/vitis_ai/compiler/arch/DPUCVDX8H/VCK5000/arch.json --output_dir model/gan --net_name gan
 ```

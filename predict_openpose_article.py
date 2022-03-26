@@ -5,7 +5,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, InputLayer
-from tensorflow_model_optimization.quantization.keras import vitis_quantize
 import matplotlib.pyplot as plt
 import data_utils as du
 
@@ -80,7 +79,7 @@ with open(sys.argv[1]) as json_data:
     draw_fig_2D_openpose(body2D_camera, image_file_name+'_article_2D.jpg')
 
     X = body2D_camera[:-1].reshape(1,28)
-    model = tf.keras.models.load_model('./model/article/quant_article.h5')
+    model = tf.keras.models.load_model('./model/article/article.h5')
     Y = model.predict(X)
 
     body3D_camera = np.zeros((14,3))

@@ -154,7 +154,7 @@ vector<cv::Mat> PoseDetect::predict2D_from_3D(vector<OpenPoseResult> results_2d)
         auto job_id = runner->execute_async(inputsPtr, outputsPtr);
         runner->wait(job_id.first, -1);
         vector<float> results(outSize * batchSize);
-        dpuOutputIn2FP32(dataresult, results.data(), outSize, output_scale);
+        dpuOutputIn2FP32(dataresult, results.data(), outSize * batchSize, output_scale);
         for (size_t j = 0; j < batch.size(); ++j)
         {
             Mat bodyNormalized = batch.at(j);

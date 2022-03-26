@@ -177,10 +177,8 @@ def decode_fn_2d(record_bytes):
   return tf.io.parse_single_example(
       # Data
       record_bytes,
-
       # Schema
-      {"x": tf.io.FixedLenFeature((28,), dtype=tf.float32),
-       "y": tf.io.FixedLenFeature((14,), dtype=tf.float32)}
+      {"x": tf.io.FixedLenFeature((28,), dtype=tf.float32)}
   )
 
 
@@ -190,7 +188,15 @@ def load_tfrecords():
     return dataset.map(decode_fn).map(lambda example: (example['x'], example['y']))
     
 
+# def load_tfrecords2D():
+#     tfrecord_files = tf.data.Dataset.list_files('data/gan/*.tfrecords', shuffle=False)
+#     dataset = tf.data.TFRecordDataset(tfrecord_files)
+#     return dataset.map(decode_fn_2d).map(lambda example: (example['x']))
+
+
 def load_tfrecords2D():
-    tfrecord_files = tf.data.Dataset.list_files('data/mov*.tfrecordss', shuffle=False)
-    dataset = tf.data.TFRecordDataset(decode_fn_2d)
-    return dataset.map(decode_fn)
+    tfrecord_files_human = tf.data.Dataset.list_files('data/Human36M_*.tfrecords', shuffle=False)
+    tfrecord_files_openpose = tf.data.Dataset.list_files('data/gan/*.tfrecords', shuffle=False)
+    dataset_openpose = tf.data.TFRecordDataset(tfrecord_files_openpose).map(decode_fn_2d).map(lambda example: (example['x']))
+    dataset_human = tf.data.TFRecordDataset(tfrecord_files_human).map(decode_fn).map(lambda example: (example['x']))
+    return dataset_openpose.concatenate(dataset_human)
