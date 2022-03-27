@@ -25,18 +25,20 @@ def residual_block(x: tf.Tensor, hidden: int) -> tf.Tensor:
 
 
 def make_generator_model()->Model:
-    hidden = 1024
+    hidden = 512
     inputs = Input(shape=(28,))
     x = layer(inputs, hidden)
+    x = residual_block(x,hidden)
     x = residual_block(x,hidden)
     x = residual_block(x,hidden)
     outputs = Dense(14)(x)
     return Model(inputs=inputs, outputs=outputs)
 
 def make_discriminator_model()->Model:
-    hidden = 1024
+    hidden = 512
     inputs = Input(shape=(28,))
     x = layer(inputs, hidden)
+    x = residual_block(x,hidden)
     x = residual_block(x,hidden)
     x = residual_block(x,hidden)
     outputs = Dense(1)(x)
@@ -49,7 +51,6 @@ discriminator.summary()
 
 
 EPOCHS = 200
-MIN_EPOCHS = 100
 batch_size=64
 dataset = du.load_tfrecords2D().shuffle(1000, reshuffle_each_iteration=True).batch(batch_size)
 
@@ -113,10 +114,6 @@ def train(dataset, epochs):
 
         template = 'Epoch {} - {:.2f} sec, Gen Loss: {}, Disc Loss: {}'
         print(template.format(epoch+1, time.time()-start, tensorboard_gen_loss.result(), tensorboard_disc_loss.result()))
-
-        if np.abs(tensorboard_disc_loss.result()-1)<0.1 and epoch+1 >= MIN_EPOCHS:
-            print('Early termination {}'.format(epoch+1))
-            break;
 
         # Reset metrics every epoch
         tensorboard_gen_loss.reset_states()
