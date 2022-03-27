@@ -138,7 +138,7 @@ This demo will showcase the 3D pose estimator on images captured in real time by
 sh build.sh
 ./build/yoga-ai-mt model/article/article.xmodel
 ```
-# Movie
+# GAN
 
 ```console
 mkdir -p ./data/video/frames
