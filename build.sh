@@ -1,3 +1,5 @@
+mkdir -p build
+
 result=0 && pkg-config --list-all | grep opencv4 && result=1
 if [ $result -eq 1 ]; then
 	OPENCV_FLAGS=$(pkg-config --cflags --libs-only-L opencv4)
