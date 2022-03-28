@@ -1,9 +1,9 @@
 # yoga-ai
-[3D pose article.xmodel](https://www.youtube.com/watch?v=z6NKuxKhq-E)
+[YouTube demo 3D pose article.xmodel](https://www.youtube.com/watch?v=z6NKuxKhq-E)
 
-[3D pose res.xmodel](https://www.youtube.com/watch?v=_IiREVrlGwo)
+[YouTube demo 3D pose res.xmodel](https://www.youtube.com/watch?v=_IiREVrlGwo)
 
-[3D pose gan.xmodel](https://www.youtube.com/watch?v=5obPOOsSL-E)
+[YouTube demo 3D pose gan.xmodel](https://www.youtube.com/watch?v=5obPOOsSL-E)
 
 
 ## Clone this project inside the Vitis AI Library directory
